@@ -1,0 +1,192 @@
+import Foundation
+
+/// 複数エンジンの文字起こしを突き合わせて、食い違っている箇所を取り出す。
+///
+/// 日本語には語境界が無く、エンジンごとにセグメントの切り方も違う（whisper 22本 / Apple 12本）。
+/// そのため「セグメント同士を対応付ける」のではなく、
+/// 時間窓で本文を集めてから**文字単位のアライメント**で差分スパンを取る。
+public enum TranscriptAlignment {
+
+    public struct Candidate: Sendable, Codable, Equatable {
+        public var engine: String
+        public var text: String
+        public init(engine: String, text: String) { self.engine = engine; self.text = text }
+    }
+
+    public struct Disagreement: Sendable, Codable, Equatable, Identifiable {
+        public var id: UUID
+        public var start: Double
+        public var end: Double
+        /// 食い違っている部分の各エンジンの表記。順序は入力の順序を保つ。
+        public var candidates: [Candidate]
+        /// 全候補の読みが一致するか。
+        /// true なら音響では区別できない同音異義語の選択なので、文脈から判断するのが正しい。
+        /// false なら音響に情報が残っているので、テキストだけで判定するのは筋が悪い。
+        public var readingsMatch: Bool
+        /// 前後の文脈（判定材料。書き換え対象ではない）
+        public var context: String
+
+        public init(id: UUID = UUID(), start: Double, end: Double,
+                    candidates: [Candidate], readingsMatch: Bool, context: String) {
+            self.id = id; self.start = start; self.end = end
+            self.candidates = candidates; self.readingsMatch = readingsMatch; self.context = context
+        }
+    }
+
+    public struct Run: Sendable {
+        public var engine: String
+        public var segments: [Segment]
+        public init(engine: String, segments: [Segment]) {
+            self.engine = engine; self.segments = segments
+        }
+    }
+
+    /// 比較を行う。先頭の Run を基準（reference）として扱う。
+    public static func compare(_ runs: [Run],
+                               windowSeconds: Double = 10,
+                               minSpanCharacters: Int = 1) -> [Disagreement] {
+        guard runs.count >= 2 else { return [] }
+        let duration = runs.flatMap { $0.segments }.map(\.end).max() ?? 0
+        guard duration > 0 else { return [] }
+
+        var out: [Disagreement] = []
+        var windowStart = 0.0
+        while windowStart < duration {
+            let windowEnd = min(windowStart + windowSeconds, duration)
+            let texts = runs.map { text(of: $0, from: windowStart, to: windowEnd) }
+            defer { windowStart = windowEnd }
+
+            // 全部空、または全部同じなら何もしない
+            let normalized = texts.map(normalize)
+            guard normalized.contains(where: { !$0.isEmpty }) else { continue }
+            guard Set(normalized).count > 1 else { continue }
+
+            let reference = texts[0]
+            for i in 1..<runs.count {
+                let spans = differingSpans(Array(reference), Array(texts[i]))
+                for span in spans {
+                    let a = String(Array(reference)[span.a])
+                    let b = String(Array(texts[i])[span.b])
+                    let ta = a.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let tb = b.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if ta.isEmpty && tb.isEmpty { continue }
+                    if max(ta.count, tb.count) < minSpanCharacters { continue }
+                    if normalize(ta) == normalize(tb) { continue }  // 句読点だけの差は無視
+
+                    let cands = [Candidate(engine: runs[0].engine, text: ta),
+                                 Candidate(engine: runs[i].engine, text: tb)]
+                    let keys = Set(cands.map { Reading.key($0.text) })
+                    out.append(Disagreement(
+                        start: windowStart, end: windowEnd,
+                        candidates: cands,
+                        readingsMatch: keys.count == 1 && !(keys.first?.isEmpty ?? true),
+                        context: contextAround(reference, span: span.a)))
+                }
+            }
+        }
+        return merge(out)
+    }
+
+    // MARK: -
+
+    static func text(of run: Run, from: Double, to: Double) -> String {
+        run.segments
+            .filter { $0.end > from && $0.start < to && !$0.isSuppressed }
+            .sorted { $0.start < $1.start }
+            .map(\.text)
+            .joined()
+    }
+
+    /// 比較用の正規化。句読点・空白・記号を落とす。
+    static func normalize(_ s: String) -> String {
+        String(s.unicodeScalars.filter {
+            !CharacterSet.whitespacesAndNewlines.contains($0)
+                && !CharacterSet.punctuationCharacters.contains($0)
+                && !CharacterSet.symbols.contains($0)
+        })
+    }
+
+    static func contextAround(_ text: String, span: Range<Int>, radius: Int = 40) -> String {
+        let chars = Array(text)
+        let lo = max(0, span.lowerBound - radius)
+        let hi = min(chars.count, span.upperBound + radius)
+        guard lo < hi else { return "" }
+        return String(chars[lo..<hi])
+    }
+
+    struct SpanPair: Equatable { var a: Range<Int>; var b: Range<Int> }
+
+    /// 文字単位のアライメントを取り、連続する不一致をスパンにまとめる。
+    static func differingSpans(_ a: [Character], _ b: [Character]) -> [SpanPair] {
+        guard !a.isEmpty || !b.isEmpty else { return [] }
+        // あまりに長いと DP が重いので上限を設ける（窓単位なので通常は数百文字）
+        let limit = 2000
+        if a.count > limit || b.count > limit {
+            return a == b ? [] : [SpanPair(a: 0..<a.count, b: 0..<b.count)]
+        }
+
+        // 距離行列
+        var d = [[Int]](repeating: [Int](repeating: 0, count: b.count + 1), count: a.count + 1)
+        for i in 0...a.count { d[i][0] = i }
+        for j in 0...b.count { d[0][j] = j }
+        if a.count > 0 && b.count > 0 {
+            for i in 1...a.count {
+                for j in 1...b.count {
+                    let cost = a[i-1] == b[j-1] ? 0 : 1
+                    d[i][j] = min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + cost)
+                }
+            }
+        }
+
+        // 逆向きに辿って一致/不一致の列を作る
+        var ops: [(ai: Int?, bi: Int?)] = []
+        var i = a.count, j = b.count
+        while i > 0 || j > 0 {
+            if i > 0 && j > 0 && d[i][j] == d[i-1][j-1] + (a[i-1] == b[j-1] ? 0 : 1) {
+                ops.append((i-1, j-1)); i -= 1; j -= 1
+            } else if i > 0 && d[i][j] == d[i-1][j] + 1 {
+                ops.append((i-1, nil)); i -= 1
+            } else if j > 0 {
+                ops.append((nil, j-1)); j -= 1
+            } else { break }
+        }
+        ops.reverse()
+
+        var spans: [SpanPair] = []
+        var runA: Range<Int>? = nil
+        var runB: Range<Int>? = nil
+        func closeRun() {
+            if runA != nil || runB != nil {
+                spans.append(SpanPair(a: runA ?? 0..<0, b: runB ?? 0..<0))
+            }
+            runA = nil; runB = nil
+        }
+        for op in ops {
+            let matched: Bool
+            if let ai = op.ai, let bi = op.bi { matched = a[ai] == b[bi] } else { matched = false }
+            if matched {
+                closeRun()
+            } else {
+                if let ai = op.ai {
+                    runA = (runA.map { $0.lowerBound..<max($0.upperBound, ai + 1) }) ?? (ai..<(ai + 1))
+                }
+                if let bi = op.bi {
+                    runB = (runB.map { $0.lowerBound..<max($0.upperBound, bi + 1) }) ?? (bi..<(bi + 1))
+                }
+            }
+        }
+        closeRun()
+        return spans
+    }
+
+    /// 同じ窓・同じ候補の重複を畳む
+    static func merge(_ items: [Disagreement]) -> [Disagreement] {
+        var seen = Set<String>()
+        var out: [Disagreement] = []
+        for d in items.sorted(by: { $0.start < $1.start }) {
+            let key = "\(Int(d.start))|" + d.candidates.map { "\($0.engine):\($0.text)" }.joined(separator: "|")
+            if seen.insert(key).inserted { out.append(d) }
+        }
+        return out
+    }
+}

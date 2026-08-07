@@ -1,0 +1,12 @@
+build/
+*.xcodeproj/
+vendor/whisper.cpp/
+vendor/sherpa-onnx/
+fixtures/
+*.log
+.DS_Store
+.remember/
+*.xcuserdatad
+# AIエージェント向けの作業ルール。手元だけに置く。
+CLAUDE.md
+AGENTS.md

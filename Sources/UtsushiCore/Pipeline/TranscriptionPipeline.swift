@@ -1,0 +1,284 @@
+import Foundation
+
+/// 抽出 → 認識 → 監査 → 自動修復 → 校正 の全体。
+/// 各段が何をしたかは AuditReport / CorrectionOutcome に残り、黙って直すことはしない。
+public actor TranscriptionPipeline {
+
+    public struct Configuration: Sendable {
+        public var language: String = "ja"
+        public var auditPolicy: HallucinationAuditor.Policy = .init()
+        public var gatePolicy: EditGate.Policy = .init()
+        public var rules: DeterministicRules = .init()
+        public var dictionary: UserDictionary = .empty
+        /// 取りこぼし疑い区間をVADなしで自動再認識する
+        public var autoRepair: Bool = true
+        /// LLM校正を行う
+        public var enableCorrection: Bool = true
+        /// LLM案は2回一致した場合のみ採用
+        public var requireAgreement: Bool = true
+        /// 照合に使う別エンジン。空なら照合しない。
+        public var crossCheckEngines: [ModelCatalog.Model] = []
+        /// 不一致をLLMに判定させる
+        public var adjudicateDisagreements: Bool = true
+        /// 読みが違う不一致もLLMに判定させるか（既定は切る。SessionSettings の説明を参照）
+        public var judgeDifferentReadings: Bool = false
+        /// 要約を作る
+        public var enableSummary: Bool = false
+        public var summaryConfig: Summarizer.Configuration = .init()
+        public init() {}
+    }
+
+    public enum Stage: Sendable, Equatable {
+        case preparing(String)
+        case extractingAudio
+        case transcribing
+        case auditing
+        case repairing(Int, Int)
+        case crossChecking(String)
+        case adjudicating(Int, Int)
+        case correcting
+        case summarizing(Int, Int)
+        case done
+        case failed(String)
+        case cancelled
+    }
+
+    public struct Progress: Sendable, Equatable {
+        public var stage: Stage
+        public var fraction: Double
+        public var message: String
+    }
+
+    private let engine: any ASREngine
+    private let corrector: (any CorrectionEngine)?
+    private let judge: (any DisagreementJudge)?
+    private let summaryEngine: (any SummaryEngine)?
+    private let config: Configuration
+    private var cancelled = false
+
+    public init(engine: any ASREngine,
+                corrector: (any CorrectionEngine)?,
+                judge: (any DisagreementJudge)? = nil,
+                summaryEngine: (any SummaryEngine)? = nil,
+                config: Configuration = Configuration()) {
+        self.engine = engine
+        self.corrector = corrector
+        self.judge = judge
+        self.summaryEngine = summaryEngine
+        self.config = config
+    }
+
+    public func cancel() { cancelled = true }
+    private nonisolated func makeCancelCheck() -> @Sendable () -> Bool {
+        let box = CancelBox()
+        Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { break }
+                if await self.cancelled { box.set(); break }
+                try? await Task.sleep(nanoseconds: 150_000_000)
+            }
+        }
+        return { box.value }
+    }
+
+    public func run(url: URL, onProgress: @escaping @Sendable (Progress) -> Void) async throws -> Transcript {
+        cancelled = false
+        let isCancelled = makeCancelCheck()
+
+        let emit: @Sendable (Stage, Double, String) -> Void = { s, f, m in
+            onProgress(Progress(stage: s, fraction: f, message: m))
+        }
+
+        // 1. 準備
+        emit(.preparing("開始"), 0, "準備中")
+        try await engine.prepare { msg, p in emit(.preparing(msg), p * 0.10, msg) }
+        if isCancelled() { throw ASRError.cancelled }
+
+        // 2. 音声抽出
+        emit(.extractingAudio, 0.10, "音声を抽出中")
+        let audio = try await AudioExtractor().extract(url: url,
+            progress: { p in emit(.extractingAudio, 0.10 + p * 0.08, "音声を抽出中") },
+            isCancelled: isCancelled)
+        let envelope = AudioEnvelope(values: audio.envelope, hop: audio.envelopeHopSeconds)
+
+        // 3. 認識
+        emit(.transcribing, 0.18, "認識中")
+        let hint = engine.supportsVocabularyHint ? config.dictionary.promptHint() : nil
+        var segments = try await engine.transcribe(
+            ASRRequest(samples: audio.samples, language: config.language,
+                       useVAD: engine.supportsVAD, vocabularyHint: hint),
+            progress: { p in emit(.transcribing, 0.18 + p * 0.52, "認識中 \(Int(p * 100))%") },
+            isCancelled: isCancelled)
+        segments.sort { $0.start < $1.start }
+
+        // 4. 監査
+        emit(.auditing, 0.72, "検証中")
+        let auditor = HallucinationAuditor(policy: config.auditPolicy)
+        var (audited, report) = auditor.audit(segments: segments,
+                                              envelope: envelope,
+                                              totalDuration: audio.duration,
+                                              engineExposesConfidence: engine.exposesConfidence)
+
+        // 5. 自動修復（VADを切って疑わしい区間だけ読み直す）
+        if config.autoRepair {
+            let plan = auditor.repairPlan(from: report, totalDuration: audio.duration)
+            for (i, range) in plan.enumerated() {
+                if isCancelled() { throw ASRError.cancelled }
+                emit(.repairing(i + 1, plan.count), 0.74 + Double(i) / Double(max(plan.count, 1)) * 0.06,
+                     "取りこぼし疑い区間を再認識中 (\(i + 1)/\(plan.count))")
+                do {
+                    let redone = try await engine.transcribe(
+                        ASRRequest(samples: audio.samples, language: config.language,
+                                   timeRange: range, useVAD: false, vocabularyHint: hint),
+                        progress: { _ in }, isCancelled: isCancelled)
+                    let (replaced, changed) = Self.splice(into: audited, range: range,
+                                                          with: redone, envelope: envelope,
+                                                          policy: config.auditPolicy)
+                    for k in report.findings.indices
+                    where report.findings[k].action == .unresolved
+                        && report.findings[k].start >= range.lowerBound
+                        && report.findings[k].end <= range.upperBound {
+                        if changed {
+                            report.findings[k].action = .repaired
+                        } else {
+                            // 調べた結果なにも無かった、を「未解決」と同じ扱いにしない。
+                            // 未解決のまま残すと、確認済みの区間まで人の目を要求してしまう。
+                            report.findings[k].action = .marked
+                            report.findings[k].detail += "（VADなしで再認識したが、追加の発話は検出されなかった）"
+                        }
+                    }
+                    if changed {
+                        audited = replaced
+                        report.stats.repairedCount += 1
+                    }
+                } catch is CancellationError {
+                    throw ASRError.cancelled
+                } catch {
+                    // 再認識に失敗しても元の結果は壊さない。未解決のまま報告に残す。
+                    continue
+                }
+            }
+            audited.sort { $0.start < $1.start }
+        }
+
+        // 6. 照合（別エンジンで読み直し、食い違いを取り出す）
+        var crossCheck = CrossCheckReport()
+        if !config.crossCheckEngines.isEmpty {
+            crossCheck.engines = [engine.identifier]
+            var runs = [TranscriptAlignment.Run(engine: engine.identifier, segments: audited)]
+            for model in config.crossCheckEngines {
+                if isCancelled() { throw ASRError.cancelled }
+                emit(.crossChecking(model.displayName), 0.80, "\(model.displayName) で照合中")
+                do {
+                    let secondary = SherpaEngine(model: model)
+                    try await secondary.prepare { msg, _ in emit(.crossChecking(model.displayName), 0.80, msg) }
+                    let segs = try await secondary.transcribe(
+                        ASRRequest(samples: audio.samples, language: config.language, useVAD: false),
+                        progress: { _ in }, isCancelled: isCancelled)
+                    secondary.shutdown()
+                    runs.append(TranscriptAlignment.Run(engine: model.id, segments: segs))
+                    crossCheck.engines.append(model.id)
+                } catch is CancellationError {
+                    throw ASRError.cancelled
+                } catch {
+                    // 照合は補助機能なので、失敗しても本体の結果は返す
+                    continue
+                }
+            }
+            if runs.count >= 2 {
+                crossCheck.disagreements = TranscriptAlignment.compare(runs)
+                if config.adjudicateDisagreements, !crossCheck.disagreements.isEmpty {
+                    let a = Adjudicator(judge: judge,
+                                        requireAgreement: config.requireAgreement,
+                                        judgeDifferentReadings: config.judgeDifferentReadings)
+                    let (adj, stat) = await a.run(on: crossCheck.disagreements) { done, total in
+                        emit(.adjudicating(done, total), 0.81, "食い違いを判定中 \(done)/\(total)")
+                    }
+                    crossCheck.adjudications = adj
+                    crossCheck.outcome = stat
+                }
+            }
+        }
+
+        // 7. 校正
+        var outcome = CorrectionOutcome()
+        let correctionEnd = config.enableSummary ? 0.92 : 0.99
+        if config.enableCorrection {
+            emit(.correcting, 0.82, "校正中")
+            let gate = EditGate(policy: config.gatePolicy, dictionary: config.dictionary)
+            let c = Corrector(engine: corrector, gate: gate, rules: config.rules,
+                              dictionary: config.dictionary, requireAgreement: config.requireAgreement)
+            let (corrected, stat) = await c.run(on: audited) { done, total in
+                emit(.correcting, 0.82 + Double(done) / Double(max(total, 1)) * (correctionEnd - 0.82),
+                     "校正中 \(done)/\(total)")
+            }
+            audited = corrected
+            outcome = stat
+        }
+
+        // 8. 要約（校正後の本文から引用する）
+        var summary = Summary.empty
+        if config.enableSummary, summaryEngine != nil {
+            if isCancelled() { throw ASRError.cancelled }
+            let s = Summarizer(engine: summaryEngine, config: config.summaryConfig)
+            summary = await s.run(on: audited) { done, total in
+                emit(.summarizing(done, total),
+                     correctionEnd + Double(done) / Double(max(total, 1)) * (0.99 - correctionEnd),
+                     "要約中 \(done)/\(total)")
+            }
+        }
+
+        report.stats.segmentCount = audited.count
+        let meta = TranscriptMeta(sourceURL: url, sourceDuration: audio.duration,
+                                  engine: engine.displayName,
+                                  modelName: engine.identifier,
+                                  language: config.language)
+        emit(.done, 1.0, "完了")
+        // カバー率は監査層が音声を見て出す。ここで尺の合計から上書きしない
+        // （それをやっていたせいで、休憩を含む素材が 100% と報告されていた）。
+        let transcript = Transcript(meta: meta, segments: audited, audit: report,
+                                    crossCheck: crossCheck, summary: summary)
+        self.lastCorrectionOutcome = outcome
+        return transcript
+    }
+
+    public private(set) var lastCorrectionOutcome = CorrectionOutcome()
+
+    /// 再認識結果を元の並びに差し込む。
+    /// 再認識側にも幻聴が乗るので、無音区間の本文はここでも捨てる。
+    static func splice(into segments: [Segment],
+                       range: ClosedRange<Double>,
+                       with fresh: [Segment],
+                       envelope: AudioEnvelope,
+                       policy: HallucinationAuditor.Policy) -> ([Segment], Bool) {
+        let cleaned = fresh.filter { seg in
+            guard !seg.original.isEmpty else { return false }
+            let peak = envelope.peakDBFS(from: seg.start, to: seg.end)
+            if peak <= policy.silenceDBFS { return false }
+            let t = seg.original.trimmingCharacters(in: .whitespaces)
+            if HallucinationAuditor.knownHallucinations.contains(t) { return false }
+            return true
+        }
+        // 元より情報が増えないなら差し替えない（改悪防止）
+        let originalChars = segments
+            .filter { $0.start < range.upperBound && $0.end > range.lowerBound && !$0.isSuppressed }
+            .reduce(0) { $0 + $1.original.count }
+        let freshChars = cleaned.reduce(0) { $0 + $1.original.count }
+        guard freshChars > originalChars else { return (segments, false) }
+
+        var out = segments.filter { $0.end <= range.lowerBound || $0.start >= range.upperBound }
+        for var seg in cleaned {
+            seg.flags.insert(.repaired)
+            out.append(seg)
+        }
+        out.sort { $0.start < $1.start }
+        return (out, true)
+    }
+}
+
+private final class CancelBox: @unchecked Sendable {
+    private var flag = false
+    private let lock = NSLock()
+    var value: Bool { lock.lock(); defer { lock.unlock() }; return flag }
+    func set() { lock.lock(); flag = true; lock.unlock() }
+}

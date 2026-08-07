@@ -1,0 +1,146 @@
+name: Utsushi
+options:
+  bundleIdPrefix: app.rtck
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  # ビルド生成物を常に1か所に固定する。DerivedData を探しに行かせない。
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    # 同梱している whisper.cpp / sherpa-onnx / onnxruntime は arm64 でしかビルドしていない
+    # （Metal 前提・Apple Silicon 専用のため意図的にそうしている）。
+    # Debug は ONLY_ACTIVE_ARCH=YES なので通るが、Release は既定で universal を狙うため
+    # x86_64 のリンクに失敗する。実際に失敗したので明示的に arm64 に固定する。
+    ARCHS: arm64
+    VALID_ARCHS: arm64
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SYMROOT: $(SRCROOT)/build
+    # 自分専用の運用なので ad-hoc 署名。証明書を入れれば Developer ID に切り替えられるよう
+    # Hardened Runtime と entitlements は最初から有効にしてある。
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGNING_REQUIRED: YES
+    CODE_SIGNING_ALLOWED: YES
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  Utsushi:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/UtsushiCore
+      - path: Sources/Utsushi
+        excludes: ["Bridging-Header.h"]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.rtck.Utsushi
+        INFOPLIST_FILE: Sources/Utsushi/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Sources/Utsushi/Utsushi.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Utsushi/Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/vendor/whisper.cpp/include
+          - $(SRCROOT)/vendor/whisper.cpp/ggml/include
+          - $(SRCROOT)/vendor/sherpa-onnx/sherpa-onnx/c-api
+          - $(SRCROOT)/vendor/sherpa-onnx
+        LIBRARY_SEARCH_PATHS:
+          - $(SRCROOT)/vendor/whisper.cpp/build-macos/src
+          - $(SRCROOT)/vendor/whisper.cpp/build-macos/ggml/src
+          - $(SRCROOT)/vendor/whisper.cpp/build-macos/ggml/src/ggml-metal
+          - $(SRCROOT)/vendor/whisper.cpp/build-macos/ggml/src/ggml-blas
+          - $(SRCROOT)/vendor/sherpa-onnx/build-static/lib
+          - $(SRCROOT)/vendor/sherpa-onnx/build-static/_deps/onnxruntime-src/lib
+        OTHER_LDFLAGS:
+          - -lwhisper
+          - -lggml
+          - -lggml-base
+          - -lggml-cpu
+          - -lggml-metal
+          - -lggml-blas
+          - -lsherpa-onnx-c-api
+          - -lsherpa-onnx-core
+          - -lkaldi-decoder-core
+          - -lsherpa-onnx-kaldifst-core
+          - -lsherpa-onnx-fstfar
+          - -lsherpa-onnx-fst
+          - -lkaldi-native-fbank-core
+          - -lkissfft-float
+          - -lssentencepiece_core
+          - -lonnxruntime
+          - -lc++
+        CLANG_CXX_LANGUAGE_STANDARD: c++17
+    dependencies:
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: Accelerate.framework
+      - sdk: AVFoundation.framework
+      - sdk: CoreMedia.framework
+      - sdk: Speech.framework
+      - sdk: FoundationModels.framework
+
+  UtsushiTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/UtsushiCoreTests
+      - path: Sources/UtsushiCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.rtck.UtsushiTests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Utsushi/Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/vendor/whisper.cpp/include
+          - $(SRCROOT)/vendor/whisper.cpp/ggml/include
+          - $(SRCROOT)/vendor/sherpa-onnx/sherpa-onnx/c-api
+          - $(SRCROOT)/vendor/sherpa-onnx
+        LIBRARY_SEARCH_PATHS:
+          - $(SRCROOT)/vendor/whisper.cpp/build-macos/src
+          - $(SRCROOT)/vendor/whisper.cpp/build-macos/ggml/src
+          - $(SRCROOT)/vendor/whisper.cpp/build-macos/ggml/src/ggml-metal
+          - $(SRCROOT)/vendor/whisper.cpp/build-macos/ggml/src/ggml-blas
+          - $(SRCROOT)/vendor/sherpa-onnx/build-static/lib
+          - $(SRCROOT)/vendor/sherpa-onnx/build-static/_deps/onnxruntime-src/lib
+        OTHER_LDFLAGS:
+          - -lwhisper
+          - -lggml
+          - -lggml-base
+          - -lggml-cpu
+          - -lggml-metal
+          - -lggml-blas
+          - -lsherpa-onnx-c-api
+          - -lsherpa-onnx-core
+          - -lkaldi-decoder-core
+          - -lsherpa-onnx-kaldifst-core
+          - -lsherpa-onnx-fstfar
+          - -lsherpa-onnx-fst
+          - -lkaldi-native-fbank-core
+          - -lkissfft-float
+          - -lssentencepiece_core
+          - -lonnxruntime
+          - -lc++
+    dependencies:
+      - sdk: Metal.framework
+      - sdk: Accelerate.framework
+      - sdk: AVFoundation.framework
+      - sdk: CoreMedia.framework
+      - sdk: Speech.framework
+      - sdk: FoundationModels.framework
+
+schemes:
+  Utsushi:
+    build:
+      targets:
+        Utsushi: all
+        UtsushiTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - UtsushiTests

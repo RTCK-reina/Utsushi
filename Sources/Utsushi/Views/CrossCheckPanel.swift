@@ -1,0 +1,104 @@
+import SwiftUI
+
+/// 別エンジンとの食い違いと、その判定結果。
+struct CrossCheckPanel: View {
+    let report: CrossCheckReport
+
+    var body: some View {
+        if report.engines.count < 2 {
+            ContentUnavailableView("照合していません", systemImage: "arrow.triangle.branch",
+                                   description: Text("設定の「照合」タブで別エンジンを有効にすると、\n食い違う箇所を洗い出せます。"))
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    summary
+                    list
+                }
+                .padding(14)
+            }
+        }
+    }
+
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("照合エンジン").font(.headline)
+            Text(report.engines.joined(separator: " / "))
+                .font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
+
+            let o = report.outcome
+            VStack(alignment: .leading, spacing: 3) {
+                row("食い違い", "\(report.disagreements.count)")
+                row("判定できた", "\(o.decided)")
+                row("　うち読みが一致（同音異義語）", "\(o.decidedWithMatchingReadings)")
+                row("　うち読みが不一致（音響情報を無視した推定）", "\(o.decidedWithDifferentReadings)")
+                row("判定できず（人の目が要る）", "\(o.undecided)")
+                row("2回の判定が割れた", "\(o.disagreedBetweenSamples)")
+                row("判定エラー", "\(o.errors)")
+            }
+            .padding(10)
+            .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+
+            if o.decidedWithDifferentReadings > 0 {
+                Label("読みが違う判定は音響情報を使っていないため、確度が落ちます。",
+                      systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private func row(_ k: String, _ v: String) -> some View {
+        HStack {
+            Text(k).font(.caption).foregroundStyle(.secondary)
+            Spacer()
+            Text(v).font(.system(.caption, design: .monospaced))
+        }
+    }
+
+    private var list: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("食い違い（\(report.disagreements.count)件）").font(.headline)
+            if report.disagreements.isEmpty {
+                Text("全エンジンの出力が一致しました。").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(report.disagreements) { d in
+                let verdict = report.adjudications.first { $0.disagreementID == d.id }
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 8) {
+                        Text(Exporter.hms(d.start))
+                            .font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
+                        Text(d.readingsMatch ? "読み一致" : "読み不一致")
+                            .font(.caption2)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background((d.readingsMatch ? Color.blue : Color.orange).opacity(0.15),
+                                        in: Capsule())
+                        Spacer()
+                        if let v = verdict, v.chosenText != nil {
+                            Label("判定済み", systemImage: "checkmark.circle")
+                                .font(.caption2).foregroundStyle(.green)
+                        } else {
+                            Label("未判定", systemImage: "questionmark.circle")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    ForEach(Array(d.candidates.enumerated()), id: \.offset) { _, c in
+                        HStack(alignment: .top, spacing: 6) {
+                            Text(c.engine)
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .frame(width: 130, alignment: .leading)
+                            Text(c.text.isEmpty ? "（なし）" : c.text)
+                                .fontWeight(verdict?.chosenText == c.text ? .semibold : .regular)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    if !d.context.isEmpty {
+                        Text(d.context)
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+                .padding(10)
+                .background(Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+}

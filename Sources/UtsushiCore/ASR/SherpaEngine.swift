@@ -1,0 +1,286 @@
+import Foundation
+
+/// sherpa-onnx を静的リンクして呼ぶエンジン。
+///
+/// ReazonSpeech-k2-v2 (zipformer transducer) と parakeet-tdt_ctc-0.6b-ja (NeMo CTC) の
+/// 両方を同じ C API で扱う。whisper とはアーキテクチャも学習データも違うので、
+/// 照合相手として誤りが相関しにくい。
+///
+/// 制約: 静的 onnxruntime では CoreML EP が使えないため **CPU 実行のみ**。
+public actor SherpaEngine: ASREngine {
+    public nonisolated var identifier: String { model.id }
+    public nonisolated var displayName: String { "sherpa-onnx (\(model.displayName))" }
+    public nonisolated let supportsVAD = false
+    public nonisolated let exposesConfidence = false
+    public nonisolated let supportsVocabularyHint = false
+
+    public struct Options: Sendable {
+        public var threads: Int32 = 6
+        /// 1回のデコードに渡す最大秒数。長すぎるとメモリと遅延が跳ねる。
+        public var maxChunkSeconds: Double = 20
+        /// チャンク境界を探す際に無音とみなす相対エネルギー閾値
+        public var silenceRatio: Float = 0.02
+        public init() {}
+    }
+
+    private let model: ModelCatalog.Model
+    private let options: Options
+    private nonisolated let holder = SherpaRecognizerBox()
+
+    public init(model: ModelCatalog.Model, options: Options = Options()) {
+        self.model = model
+        self.options = options
+    }
+
+    public nonisolated func shutdown() { holder.free() }
+    public nonisolated var isLoaded: Bool { holder.pointer != nil }
+
+    public func prepare(progress: @escaping @Sendable (String, Double) -> Void) async throws {
+        progress("モデルを確認中", 0)
+        let needsDownload = !ModelCatalog.isInstalled(model)
+        let label = needsDownload
+            ? "\(model.displayName) をダウンロード中（\(ModelCatalog.sizeText(model.approximateBytes))・初回のみ）"
+            : "モデルを確認中"
+        if needsDownload { progress(label, 0.01) }
+        _ = try await ModelCatalog.install(model) { p in progress(label, max(0.01, p * 0.95)) }
+
+        guard holder.pointer == nil else { progress("準備完了", 1.0); return }
+        progress("モデルを読み込み中", 0.96)
+
+        guard let tokens = ModelCatalog.localURL(for: model, role: "tokens")?.path else {
+            throw ASRError.modelUnavailable("tokens.txt が見つからない")
+        }
+
+        let recognizer: OpaquePointer? = try tokens.withCString { tokensPtr in
+            try "cpu".withCString { providerPtr in
+                try "greedy_search".withCString { methodPtr in
+                    var config = SherpaOnnxOfflineRecognizerConfig()
+                    config.feat_config.sample_rate = Int32(AudioExtractor.sampleRate)
+                    config.feat_config.feature_dim = 80
+                    config.model_config.tokens = tokensPtr
+                    config.model_config.num_threads = options.threads
+                    config.model_config.debug = 0
+                    config.model_config.provider = providerPtr
+                    config.decoding_method = methodPtr
+                    config.max_active_paths = 4
+
+                    switch model.engine {
+                    case .sherpaTransducer:
+                        guard let enc = ModelCatalog.localURL(for: model, role: "encoder")?.path,
+                              let dec = ModelCatalog.localURL(for: model, role: "decoder")?.path,
+                              let joi = ModelCatalog.localURL(for: model, role: "joiner")?.path else {
+                            throw ASRError.modelUnavailable("transducer の3ファイルが揃っていない")
+                        }
+                        return enc.withCString { e in
+                            dec.withCString { d in
+                                joi.withCString { j in
+                                    config.model_config.transducer.encoder = e
+                                    config.model_config.transducer.decoder = d
+                                    config.model_config.transducer.joiner = j
+                                    return SherpaOnnxCreateOfflineRecognizer(&config)
+                                }
+                            }
+                        }
+                    case .sherpaNemoCTC:
+                        guard let m = ModelCatalog.localURL(for: model, role: "model")?.path else {
+                            throw ASRError.modelUnavailable("nemo-ctc のモデルが無い")
+                        }
+                        return m.withCString { mp in
+                            config.model_config.nemo_ctc.model = mp
+                            return SherpaOnnxCreateOfflineRecognizer(&config)
+                        }
+                    default:
+                        throw ASRError.modelUnavailable("SherpaEngine が扱えないモデル種別: \(model.engine.rawValue)")
+                    }
+                }
+            }
+        }
+        guard let recognizer else {
+            throw ASRError.modelUnavailable("SherpaOnnxCreateOfflineRecognizer が nil を返した")
+        }
+        holder.set(recognizer)
+        progress("準備完了", 1.0)
+    }
+
+    public func transcribe(_ request: ASRRequest,
+                           progress: @escaping @Sendable (Double) -> Void,
+                           isCancelled: @escaping @Sendable () -> Bool) async throws -> [Segment] {
+        guard let recognizer = holder.pointer else {
+            throw ASRError.engineFailed("prepare() が呼ばれていない")
+        }
+        let sr = AudioExtractor.sampleRate
+        let all = request.samples
+        guard !all.isEmpty else { return [] }
+
+        // 対象区間を切り出す
+        let offset = request.timeRange?.lowerBound ?? 0
+        let i0 = max(0, Int(offset * sr))
+        let i1 = min(all.count, Int((request.timeRange?.upperBound ?? Double(all.count) / sr) * sr))
+        guard i0 < i1 else { return [] }
+        let samples = Array(all[i0..<i1])
+
+        // オフライン認識器は波形をまとめて食うので、長尺は自前で切る。
+        // 無音の谷を優先して切ることで、単語の途中で切れるのを避ける。
+        let chunks = Self.chunk(samples, sampleRate: sr,
+                                maxSeconds: options.maxChunkSeconds,
+                                silenceRatio: options.silenceRatio)
+        var out: [Segment] = []
+        for (index, chunk) in chunks.enumerated() {
+            if isCancelled() { throw ASRError.cancelled }
+            let chunkStart = offset + Double(chunk.start) / sr
+            let segs = try Self.decode(recognizer: recognizer,
+                                       samples: Array(samples[chunk.start..<chunk.end]),
+                                       sampleRate: Int32(sr),
+                                       startOffset: chunkStart)
+            out.append(contentsOf: segs)
+            progress(Double(index + 1) / Double(max(chunks.count, 1)))
+        }
+        progress(1.0)
+        return out.sorted { $0.start < $1.start }
+    }
+
+    // MARK: - デコード
+
+    private static func decode(recognizer: OpaquePointer, samples: [Float],
+                               sampleRate: Int32, startOffset: Double) throws -> [Segment] {
+        guard let stream = SherpaOnnxCreateOfflineStream(recognizer) else {
+            throw ASRError.engineFailed("SherpaOnnxCreateOfflineStream が nil を返した")
+        }
+        defer { SherpaOnnxDestroyOfflineStream(stream) }
+
+        samples.withUnsafeBufferPointer { buf in
+            SherpaOnnxAcceptWaveformOffline(stream, sampleRate, buf.baseAddress, Int32(buf.count))
+        }
+        SherpaOnnxDecodeOfflineStream(recognizer, stream)
+
+        guard let result = SherpaOnnxGetOfflineStreamResult(stream) else { return [] }
+        defer { SherpaOnnxDestroyOfflineRecognizerResult(result) }
+
+        let text = String(cString: result.pointee.text).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return [] }
+
+        // トークン単位のタイムスタンプがあれば、それを使って発話単位に組み直す。
+        let count = Int(result.pointee.count)
+        if count > 0, let stamps = result.pointee.timestamps, let arr = result.pointee.tokens_arr {
+            var tokens: [(String, Double)] = []
+            tokens.reserveCapacity(count)
+            for i in 0..<count {
+                guard let cs = arr[i] else { continue }
+                let t = String(cString: cs)
+                tokens.append((t, Double(stamps[i]) + startOffset))
+            }
+            let grouped = groupTokens(tokens, fallbackEnd: startOffset + Double(samples.count) / AudioExtractor.sampleRate)
+            if !grouped.isEmpty { return grouped }
+        }
+
+        // タイムスタンプが取れない場合はチャンク全体を1セグメントにする
+        let end = startOffset + Double(samples.count) / AudioExtractor.sampleRate
+        return [Segment(start: startOffset, end: end, original: text)]
+    }
+
+    /// トークン列を発話単位にまとめる。文末記号か一定以上の間で区切る。
+    static func groupTokens(_ tokens: [(text: String, start: Double)],
+                            gapSeconds: Double = 0.6,
+                            maxCharacters: Int = 140,
+                            fallbackEnd: Double) -> [Segment] {
+        guard !tokens.isEmpty else { return [] }
+        let terminators: Set<Character> = ["。", "．", ".", "！", "!", "？", "?"]
+        var out: [Segment] = []
+        var buffer = ""
+        var bufferStart = tokens[0].start
+        var previous = tokens[0].start
+
+        func flush(end: Double) {
+            let t = buffer.replacingOccurrences(of: "▁", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !t.isEmpty {
+                out.append(Segment(start: bufferStart, end: max(end, bufferStart + 0.1), original: t))
+            }
+            buffer = ""
+        }
+
+        for token in tokens {
+            if !buffer.isEmpty {
+                let gap = token.start - previous
+                let endsSentence = buffer.last.map { terminators.contains($0) } ?? false
+                if endsSentence || gap > gapSeconds || buffer.count > maxCharacters {
+                    flush(end: previous)
+                    bufferStart = token.start
+                }
+            } else {
+                bufferStart = token.start
+            }
+            buffer += token.text
+            previous = token.start
+        }
+        flush(end: fallbackEnd)
+        return out
+    }
+
+    // MARK: - チャンク分割
+
+    struct Chunk: Equatable { var start: Int; var end: Int }
+
+    /// 最大長を超えない範囲で、なるべく静かなところで切る。
+    static func chunk(_ samples: [Float], sampleRate: Double,
+                      maxSeconds: Double, silenceRatio: Float) -> [Chunk] {
+        let maxLen = Int(maxSeconds * sampleRate)
+        guard samples.count > maxLen else {
+            return samples.isEmpty ? [] : [Chunk(start: 0, end: samples.count)]
+        }
+        // 100ms 粒度のエネルギー
+        let hop = Int(sampleRate / 10)
+        var energy: [Float] = []
+        energy.reserveCapacity(samples.count / hop + 1)
+        var i = 0
+        while i < samples.count {
+            let j = min(i + hop, samples.count)
+            var sum: Float = 0
+            for k in i..<j { sum += abs(samples[k]) }
+            energy.append(sum / Float(j - i))
+            i = j
+        }
+        let peak = energy.max() ?? 1
+        let threshold = peak * silenceRatio
+
+        var chunks: [Chunk] = []
+        var start = 0
+        while start < samples.count {
+            let hardEnd = min(start + maxLen, samples.count)
+            if hardEnd == samples.count { chunks.append(Chunk(start: start, end: hardEnd)); break }
+            // 後ろ 1/3 の範囲で最も静かなフレームを探す
+            let searchFrom = start + maxLen * 2 / 3
+            var best = hardEnd
+            var bestEnergy = Float.greatestFiniteMagnitude
+            var f = searchFrom / hop
+            let fEnd = min(hardEnd / hop, energy.count - 1)
+            while f <= fEnd {
+                if energy[f] < bestEnergy { bestEnergy = energy[f]; best = f * hop }
+                f += 1
+            }
+            let end = (bestEnergy <= threshold && best > start) ? best : hardEnd
+            chunks.append(Chunk(start: start, end: end))
+            start = end
+        }
+        return chunks
+    }
+}
+
+/// recognizer の所有者。actor の外からも解放できるようロックで持つ。
+private final class SherpaRecognizerBox: @unchecked Sendable {
+    private var ptr: OpaquePointer?
+    private let lock = NSLock()
+    var pointer: OpaquePointer? { lock.lock(); defer { lock.unlock() }; return ptr }
+    func set(_ p: OpaquePointer) {
+        lock.lock()
+        if let old = ptr { SherpaOnnxDestroyOfflineRecognizer(old) }
+        ptr = p
+        lock.unlock()
+    }
+    func free() {
+        lock.lock()
+        if let p = ptr { SherpaOnnxDestroyOfflineRecognizer(p); ptr = nil }
+        lock.unlock()
+    }
+    deinit { free() }
+}
