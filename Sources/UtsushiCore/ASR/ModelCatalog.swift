@@ -55,6 +55,7 @@ public struct ModelCatalog: Sendable {
         case sherpaTransducer   // zipformer / RNN-T
         case sherpaNemoCTC      // FastConformer CTC
         case sherpaQwen3ASR     // LLMデコーダ型（生成型）
+        case sherpaSenseVoice   // 非自己回帰（作文しない）
         case sileroVAD
     }
 
@@ -82,6 +83,8 @@ public struct ModelCatalog: Sendable {
     ]
 
     /// 照合用の独立エンジン。whisper とアーキテクチャが異なるので誤りが相関しにくい。
+    private static let BASE_URL = "https://huggingface.co/thieunv/sherpa-onnx-qwen3-asr-1.7B-int8/resolve/main/"
+
     public static let sherpaModels: [Model] = [
         Model(id: "sherpa-zipformer-ja-reazonspeech",
               displayName: "ReazonSpeech k2-v2 (zipformer int8)",
@@ -126,6 +129,52 @@ public struct ModelCatalog: Sendable {
               approximateBytes: 940_000_000,
               note: "LLMデコーダ型。文脈から補うので、音響に無い語を書くことがある",
               attribution: "This product includes Qwen3-ASR by Alibaba, licensed under Apache-2.0."),
+        // 1.7B。sherpa-onnx の公式リリースには 0.6B しか無いので、
+        // HF 上の sherpa-onnx 形式の書き出しから個別ファイルで取る。
+        //
+        // 素性について: 公開者は sherpa-onnx のメンテナ本人ではない。
+        // ただし tokenizer の3ファイルは公式 0.6B とサイズが完全一致しており
+        // （vocab 2,776,833 / merges 1,671,853 / config 12,487）、
+        // 全ファイルのサイズを固定してあるので差し替えは検出できる。
+        // それでも「第三者が書き出した ONNX をローカルで実行する」ことに変わりはない。
+        Model(id: "sherpa-qwen3-asr-1.7b",
+              displayName: "Qwen3-ASR 1.7B (int8・非公式ビルド)",
+              engine: .sherpaQwen3ASR,
+              items: [
+                Item(role: "conv_frontend", fileName: "conv_frontend.onnx",
+                     url: URL(string: BASE_URL + "conv_frontend.onnx")!, sizeBytes: 48_080_441),
+                Item(role: "encoder", fileName: "encoder.int8.onnx",
+                     url: URL(string: BASE_URL + "encoder.int8.onnx")!, sizeBytes: 314_222_162),
+                Item(role: "decoder", fileName: "decoder.int8.onnx",
+                     url: URL(string: BASE_URL + "decoder.int8.onnx")!, sizeBytes: 2_037_458_645),
+                Item(role: "vocab", fileName: "vocab.json",
+                     url: URL(string: BASE_URL + "tokenizer/vocab.json")!, sizeBytes: 2_776_833),
+                Item(role: "merges", fileName: "merges.txt",
+                     url: URL(string: BASE_URL + "tokenizer/merges.txt")!, sizeBytes: 1_671_853),
+                Item(role: "tokenizer_config", fileName: "tokenizer_config.json",
+                     url: URL(string: BASE_URL + "tokenizer/tokenizer_config.json")!, sizeBytes: 12_487),
+              ],
+              approximateBytes: 2_404_222_421,
+              note: "0.6B より大きい。ベンチのCER 0.140 はこのサイズの数字",
+              attribution: "This product includes Qwen3-ASR by Alibaba, licensed under Apache-2.0."),
+        // 非自己回帰。1回の前向き計算で全トークンを出すので、
+        // 生成型のように「文脈から補って書く」ことがない。
+        // 照合の相方としては Qwen3 より筋が良い（作文しない・揺れない）。
+        // ITN（数字や単位の正規化）は切る。表記を書き換えられると
+        // 照合の食い違いが「認識の違い」ではなく「表記の違い」で埋まる。
+        Model(id: "sherpa-sense-voice",
+              displayName: "SenseVoice (fp32・多言語)",
+              engine: .sherpaSenseVoice,
+              items: [
+                Item(role: "model", fileName: "model.onnx",
+                     pathInArchive: "model.onnx", sizeBytes: 0),
+                Item(role: "tokens", fileName: "tokens.txt",
+                     pathInArchive: "tokens.txt", sizeBytes: 0),
+              ],
+              archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2025-09-09.tar.bz2")!,
+              approximateBytes: 886_000_000,
+              note: "非自己回帰。作文せず、実行ごとに揺れない",
+              attribution: "This product includes SenseVoice by Alibaba (FunASR)."),
         Model(id: "sherpa-parakeet-ja",
               displayName: "NVIDIA Parakeet ja (nemo-ctc int8)",
               engine: .sherpaNemoCTC,

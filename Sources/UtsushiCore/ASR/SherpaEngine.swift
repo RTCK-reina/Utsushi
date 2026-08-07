@@ -20,6 +20,8 @@ public actor SherpaEngine: ASREngine {
         public var maxChunkSeconds: Double = 20
         /// チャンク境界を探す際に無音とみなす相対エネルギー閾値
         public var silenceRatio: Float = 0.02
+        /// SenseVoice に渡す言語。空文字で自動判定。
+        public var senseVoiceLanguage: String = "ja"
         public init() {}
     }
 
@@ -96,6 +98,23 @@ public actor SherpaEngine: ASREngine {
                             config.model_config.nemo_ctc.model = mp
                             return SherpaOnnxCreateOfflineRecognizer(&config)
                         }
+                    case .sherpaSenseVoice:
+                        guard let m = ModelCatalog.localURL(for: model, role: "model")?.path else {
+                            throw ASRError.modelUnavailable("sense-voice のモデルが無い")
+                        }
+                        // recognizer は prepare 時に作るので、ここに ASRRequest は無い。
+                        // 言語は Options で持つ（既定 "ja"）。空文字にすると自動判定になるが、
+                        // 判定を外したときの誤りが読み取りにくいので明示する方を既定にしている。
+                        return m.withCString { mp in
+                            options.senseVoiceLanguage.withCString { lang in
+                                config.model_config.sense_voice.model = mp
+                                config.model_config.sense_voice.language = lang
+                                // ITN は切る。数字や単位を書き換えられると、
+                                // 照合の食い違いが表記の違いで埋まる。
+                                config.model_config.sense_voice.use_itn = 0
+                                return SherpaOnnxCreateOfflineRecognizer(&config)
+                            }
+                        }
                     case .sherpaQwen3ASR:
                         guard let cf = ModelCatalog.localURL(for: model, role: "conv_frontend")?.path,
                               let enc = ModelCatalog.localURL(for: model, role: "encoder")?.path,
@@ -118,7 +137,17 @@ public actor SherpaEngine: ASREngine {
                                         // 照合にも計測にも使えなくなる。
                                         config.model_config.qwen3_asr.temperature = 0
                                         config.model_config.qwen3_asr.top_p = 1
-                                        config.model_config.qwen3_asr.seed = 0
+                                        // シードは固定してあるが、**これでは再現性は得られない**。
+                                        //
+                                        // 実測（フィクスチャ冒頭2分・同一設定）:
+                                        //   プロセス内: 4本とも完全一致（インスタンスを作り直しても同じ）
+                                        //   プロセス間: 753 / 758 / 759文字 と毎回変わる
+                                        //   threads=1 でも seed=42 でも、プロセス間の食い違いは消えない
+                                        //
+                                        // 原因は未特定。並列リダクション順とシードは潰したので、
+                                        // 残るのは onnxruntime のプロセス単位の最適化あたりだが確認していない。
+                                        // **この状態では CER 計測にも照合にも使えない**（実行のたびに数字が変わる）。
+                                        config.model_config.qwen3_asr.seed = 42
                                         config.model_config.qwen3_asr.max_total_len = 32768
                                         config.model_config.qwen3_asr.max_new_tokens = 512
                                         return SherpaOnnxCreateOfflineRecognizer(&config)
