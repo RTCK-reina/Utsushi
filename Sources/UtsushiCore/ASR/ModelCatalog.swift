@@ -54,6 +54,7 @@ public struct ModelCatalog: Sendable {
         case whisper
         case sherpaTransducer   // zipformer / RNN-T
         case sherpaNemoCTC      // FastConformer CTC
+        case sherpaQwen3ASR     // LLMデコーダ型（生成型）
         case sileroVAD
     }
 
@@ -98,6 +99,33 @@ public struct ModelCatalog: Sendable {
               archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-ja-reazonspeech-2024-08-01.tar.bz2")!,
               approximateBytes: 160_000_000,
               note: "日本語35,000時間で学習。RNN-T系なのでwhisperと誤りが独立しやすい"),
+        // LLMデコーダ型。他の2つと違い、音響から素直に写すのではなく
+        // 文脈から補って書く。精度指標では有利に出るが、このアプリでは
+        // ゲートより上流で本文が創作されうる点に注意がいる。
+        // temperature=0・固定シードで、せめて決定的に動かす。
+        Model(id: "sherpa-qwen3-asr-0.6b",
+              displayName: "Qwen3-ASR 0.6B (int8)",
+              engine: .sherpaQwen3ASR,
+              items: [
+                Item(role: "conv_frontend", fileName: "conv_frontend.onnx",
+                     pathInArchive: "conv_frontend.onnx", sizeBytes: 0),
+                Item(role: "encoder", fileName: "encoder.int8.onnx",
+                     pathInArchive: "encoder.int8.onnx", sizeBytes: 0),
+                Item(role: "decoder", fileName: "decoder.int8.onnx",
+                     pathInArchive: "decoder.int8.onnx", sizeBytes: 0),
+                // tokenizer はディレクトリを渡す仕様。3ファイルを同じ場所に
+                // 展開して、その親ディレクトリを指す。
+                Item(role: "vocab", fileName: "vocab.json",
+                     pathInArchive: "vocab.json", sizeBytes: 0),
+                Item(role: "merges", fileName: "merges.txt",
+                     pathInArchive: "merges.txt", sizeBytes: 0),
+                Item(role: "tokenizer_config", fileName: "tokenizer_config.json",
+                     pathInArchive: "tokenizer_config.json", sizeBytes: 0),
+              ],
+              archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25.tar.bz2")!,
+              approximateBytes: 940_000_000,
+              note: "LLMデコーダ型。文脈から補うので、音響に無い語を書くことがある",
+              attribution: "This product includes Qwen3-ASR by Alibaba, licensed under Apache-2.0."),
         Model(id: "sherpa-parakeet-ja",
               displayName: "NVIDIA Parakeet ja (nemo-ctc int8)",
               engine: .sherpaNemoCTC,

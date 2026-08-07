@@ -47,7 +47,14 @@ public actor SherpaEngine: ASREngine {
         guard holder.pointer == nil else { progress("準備完了", 1.0); return }
         progress("モデルを読み込み中", 0.96)
 
-        guard let tokens = ModelCatalog.localURL(for: model, role: "tokens")?.path else {
+        // Qwen3-ASR は tokens.txt を使わず tokenizer ディレクトリを取る。
+        // 他のエンジンでは従来どおり必須。
+        let tokens: String
+        if model.engine == .sherpaQwen3ASR {
+            tokens = ""
+        } else if let t = ModelCatalog.localURL(for: model, role: "tokens")?.path {
+            tokens = t
+        } else {
             throw ASRError.modelUnavailable("tokens.txt が見つからない")
         }
 
@@ -88,6 +95,36 @@ public actor SherpaEngine: ASREngine {
                         return m.withCString { mp in
                             config.model_config.nemo_ctc.model = mp
                             return SherpaOnnxCreateOfflineRecognizer(&config)
+                        }
+                    case .sherpaQwen3ASR:
+                        guard let cf = ModelCatalog.localURL(for: model, role: "conv_frontend")?.path,
+                              let enc = ModelCatalog.localURL(for: model, role: "encoder")?.path,
+                              let dec = ModelCatalog.localURL(for: model, role: "decoder")?.path,
+                              let vocab = ModelCatalog.localURL(for: model, role: "vocab") else {
+                            throw ASRError.modelUnavailable("qwen3-asr のファイルが揃っていない")
+                        }
+                        // tokenizer は vocab.json などを含むディレクトリを指す
+                        let tokenizerDir = vocab.deletingLastPathComponent().path
+                        return cf.withCString { c in
+                            enc.withCString { e in
+                                dec.withCString { d in
+                                    tokenizerDir.withCString { t in
+                                        config.model_config.qwen3_asr.conv_frontend = c
+                                        config.model_config.qwen3_asr.encoder = e
+                                        config.model_config.qwen3_asr.decoder = d
+                                        config.model_config.qwen3_asr.tokenizer = t
+                                        // 生成型なので、決定的に動かす。
+                                        // 温度を上げると同じ音声から違う本文が出る＝
+                                        // 照合にも計測にも使えなくなる。
+                                        config.model_config.qwen3_asr.temperature = 0
+                                        config.model_config.qwen3_asr.top_p = 1
+                                        config.model_config.qwen3_asr.seed = 0
+                                        config.model_config.qwen3_asr.max_total_len = 32768
+                                        config.model_config.qwen3_asr.max_new_tokens = 512
+                                        return SherpaOnnxCreateOfflineRecognizer(&config)
+                                    }
+                                }
+                            }
                         }
                     default:
                         throw ASRError.modelUnavailable("SherpaEngine が扱えないモデル種別: \(model.engine.rawValue)")
