@@ -146,5 +146,9 @@ schemes:
       config: Debug
     test:
       config: Debug
+      # Xcode のテストランナーは呼び出し元シェルの環境変数を継承しないため、
+      # XcodeGen 生成時に明示して .xcscheme へ渡す。未指定時は空になり長尺試験だけ skip する。
+      environmentVariables:
+        UTSUSHI_PRODUCTION_MEDIA: "${UTSUSHI_PRODUCTION_MEDIA}"
       targets:
         - UtsushiTests

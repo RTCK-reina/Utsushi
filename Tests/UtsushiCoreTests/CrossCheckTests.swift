@@ -70,6 +70,60 @@ final class TranscriptAlignmentTests: XCTestCase {
         XCTAssertEqual(spans.count, 1)
         XCTAssertEqual(String(Array("あいうえお")[spans[0].b]), "う")
     }
+
+    func testLongSegmentMatchesEquivalentShortSegmentsAcrossWindows() {
+        let whole = "あいうえおかきくけこさしすせそ"
+        let a = run("whisper", [(0, 30, whole)])
+        let b = run("sherpa", [
+            (0, 10, "あいうえお"),
+            (10, 20, "かきくけこ"),
+            (20, 30, "さしすせそ"),
+        ])
+
+        XCTAssertTrue(TranscriptAlignment.compare([a, b], windowSeconds: 10).isEmpty,
+                      "分節の長さが違うだけで食い違いを水増ししてはいけない")
+    }
+
+    func testLongSegmentDifferenceIsReportedOnlyInItsWindow() {
+        let a = run("whisper", [(0, 30, "あいうえおかきくけこさしすせそ")])
+        let b = run("sherpa", [(0, 30, "あいうえおかきくけごさしすせそ")])
+
+        let disagreements = TranscriptAlignment.compare([a, b], windowSeconds: 10)
+
+        XCTAssertEqual(disagreements.count, 1,
+                       "長いセグメント内の同じ差分を複数の窓で数えてはいけない")
+        XCTAssertEqual(disagreements.first?.start, 10)
+        XCTAssertEqual(disagreements.first?.end, 20)
+    }
+
+    /// 長さ0のセグメントを窓分割で捨てないこと。
+    ///
+    /// `SpeechAnalyzerEngine` は `max(end, start)` と書いていて end == start を許す。
+    /// 時間比で分けられないからといって "" を返すと、本文が照合から静かに消える。
+    /// 消えたことは画面にも出ないので、気づく手立てが無い。
+    func testZeroLengthSegmentIsNotSilentlyDropped() {
+        let point = Segment(start: 5, end: 5, original: "一瞬だけの発話")
+        XCTAssertEqual(TranscriptAlignment.textSlice(of: point, from: 0, to: 10), "一瞬だけの発話")
+        XCTAssertEqual(TranscriptAlignment.textSlice(of: point, from: 10, to: 20), "")
+
+        // 照合の経路でも消えないこと
+        let a = TranscriptAlignment.Run(engine: "apple", segments: [point])
+        let b = TranscriptAlignment.Run(engine: "whisper",
+                                        segments: [Segment(start: 0, end: 10, original: "一瞬だけの発言")])
+        let out = TranscriptAlignment.compare([a, b], windowSeconds: 10)
+        XCTAssertFalse(out.isEmpty, "長さ0のセグメントが照合から消えている")
+    }
+
+    func testAdjacentWindowSlicesReconstructOriginalTextExactly() {
+        let segment = Segment(start: 0, end: 27, original: "二十七文字でなくても境界の丸めで欠落重複させない")
+        let run = TranscriptAlignment.Run(engine: "whisper", segments: [segment])
+        let reconstructed = stride(from: 0.0, to: 27.0, by: 10.0).map {
+            TranscriptAlignment.text(of: run, from: $0, to: min($0 + 10, 27))
+        }.joined()
+
+        XCTAssertEqual(reconstructed, segment.text,
+                       "隣接窓の境界で文字を欠落・重複させてはいけない")
+    }
 }
 
 /// 判定を返すだけのダミー。ゲート側の挙動だけを見る。

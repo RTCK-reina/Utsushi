@@ -104,11 +104,10 @@ public enum TranscriptAlignment {
                     // 数値の書き方・全角半角だけの違いは `.notation` に落とす。
                     // whisper は「3」、zipformer は「三」と書く。
                     //
-                    // 実測は 574件中29件（5%）。着手前は「大半がこれ」と踏んでいたが外れた。
-                    // 食い違いが多い主因は表記ではなく整列の粒度で、
-                    // 時間窓10秒に対しセグメントが20〜27秒あるため、
-                    // 1つのセグメントが複数の窓に丸ごと入って差分が水増しされている。
-                    // そちらは未対応。
+                    // 実測では表記差は全体の一部で、差分の大半を占めるわけではなかった。
+                    // 表記差は中身の違いと分けて数える。長いセグメントは下の
+                    // `text(of:from:to:)` で窓ごとの文字範囲に分割済みなので、
+                    // 同じ本文が複数の窓へ丸ごと重複することはない。
                     let kind: Kind = Notation.comparisonKey(ta) == Notation.comparisonKey(tb)
                         ? .notation : .substantive
 
@@ -133,8 +132,36 @@ public enum TranscriptAlignment {
         run.segments
             .filter { $0.end > from && $0.start < to && !$0.isSuppressed }
             .sorted { $0.start < $1.start }
-            .map(\.text)
+            .map { textSlice(of: $0, from: from, to: to) }
             .joined()
+    }
+
+    /// 時間窓と重なるセグメント本文だけを取り出す。
+    ///
+    /// ASR のセグメントは20秒を超えることがあり、全文を各10秒窓へ入れると
+    /// 同じ不一致を2〜3回数えてしまう。単語タイムスタンプを持たないエンジンも
+    /// 比較対象なので、文字がセグメント内に一様に並ぶと仮定して時間比で分割する。
+    /// 同じ丸めを両端に使うことで、隣接する窓を連結すると元の本文へ必ず戻る。
+    static func textSlice(of segment: Segment, from: Double, to: Double) -> String {
+        let text = Array(segment.text)
+        guard !text.isEmpty else { return "" }
+        let duration = segment.end - segment.start
+
+        // 長さ0のセグメントは時間比で分けられない。捨てると本文が照合から静かに消えるので、
+        // その時刻を含む窓へ丸ごと入れる。
+        // `SpeechAnalyzerEngine` は `Segment(start:end: max(end, start))` と書いていて、
+        // end == start を許す作りになっている。ここを "" で返すと、Apple エンジンを
+        // 基準にしたときだけ特定のセグメントが照合対象から外れ、しかも何も表示されない。
+        guard duration > 0 else {
+            return (segment.start >= from && segment.start < to) ? segment.text : ""
+        }
+
+        let lowerFraction = min(1, max(0, (from - segment.start) / duration))
+        let upperFraction = min(1, max(0, (to - segment.start) / duration))
+        let lower = min(text.count, Int((Double(text.count) * lowerFraction).rounded(.down)))
+        let upper = min(text.count, Int((Double(text.count) * upperFraction).rounded(.down)))
+        guard lower < upper else { return "" }
+        return String(text[lower..<upper])
     }
 
     /// 比較用の正規化。句読点・空白・記号を落とす。

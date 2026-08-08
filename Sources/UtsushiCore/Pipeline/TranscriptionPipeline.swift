@@ -54,7 +54,10 @@ public actor TranscriptionPipeline {
     private let judge: (any DisagreementJudge)?
     private let summaryEngine: (any SummaryEngine)?
     private let config: Configuration
-    private var cancelled = false
+    /// Cコールバックから同期的に読めるキャンセル状態。
+    /// ポーリング Task を作ると、その Task がパイプラインとASRエンジンを保持し続け、
+    /// 終了時まで whisper_context が解放されないため、共有フラグを直接使う。
+    private let cancellation = CancelBox()
 
     public init(engine: any ASREngine,
                 corrector: (any CorrectionEngine)?,
@@ -68,21 +71,14 @@ public actor TranscriptionPipeline {
         self.config = config
     }
 
-    public func cancel() { cancelled = true }
-    private nonisolated func makeCancelCheck() -> @Sendable () -> Bool {
-        let box = CancelBox()
-        Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self else { break }
-                if await self.cancelled { box.set(); break }
-                try? await Task.sleep(nanoseconds: 150_000_000)
-            }
-        }
-        return { box.value }
+    public func cancel() { cancellation.set() }
+    private func makeCancelCheck() -> @Sendable () -> Bool {
+        let cancellation = cancellation
+        return { cancellation.value }
     }
 
     public func run(url: URL, onProgress: @escaping @Sendable (Progress) -> Void) async throws -> Transcript {
-        cancelled = false
+        cancellation.reset()
         let isCancelled = makeCancelCheck()
 
         let emit: @Sendable (Stage, Double, String) -> Void = { s, f, m in
@@ -281,4 +277,5 @@ private final class CancelBox: @unchecked Sendable {
     private let lock = NSLock()
     var value: Bool { lock.lock(); defer { lock.unlock() }; return flag }
     func set() { lock.lock(); flag = true; lock.unlock() }
+    func reset() { lock.lock(); flag = false; lock.unlock() }
 }

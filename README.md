@@ -96,10 +96,14 @@ SenseVoice の新版に見えるが、onnx のメタデータは `comment=ASLP-l
 
 zipformer は「三月」、parakeet は「3月」と書く。認識は合っているのに食い違いとして並ぶ。
 
-**実測では 574 件中 29 件（5%）。** 着手前は「大半がこれだろう」と踏んでいたが外れた。
-入れる価値はある（29件は確実に無駄な確認）が、食い違いが多い主因は表記ではない。
-主因は整列の粒度で、時間窓 10 秒に対してセグメントが 20〜27 秒あるため、
-1つのセグメントが複数の窓に丸ごと入って差分が水増しされている。ここは未対応。
+修正前の実測では 574 件中 29 件（5%）で、着手前の「大半が表記差」という見立ては外れた。
+整列修正後の同じ11分素材では **約310件中19件（6%）**（実行ごとに数件ぶれる）。
+表記差の分類には価値があるが、
+食い違いが多い主因ではない。以前の主因は整列の粒度で、時間窓 10 秒に対して
+セグメントが 20〜27 秒あると、
+1つのセグメントが複数の窓に丸ごと入り差分が水増しされていた。現在は、単語時刻を
+持たないエンジンにも共通して適用できるよう、重なった時間比で本文の文字範囲を分割する。
+隣接窓の境界には同じ丸めを使い、文字の欠落・重複が起きないことをテストしている。
 
 `Notation`（`Sources/UtsushiCore/Text/`）で漢数字・全角・半角をそろえてから比較し、
 表記だけの違いは `.notation` に分類して既定では畳む。**捨てはしない**——
@@ -158,6 +162,20 @@ vendor/build_sherpa.sh       # 照合用エンジン（sherpa-onnx v1.13.4 静�
 script/build_and_run.sh verify
 script/build_and_run.sh test
 ```
+
+2時間超の手元素材で本番サイズ検証まで行う場合（素材自体はリポジトリへ入れない）:
+
+```bash
+UTSUSHI_PRODUCTION_MEDIA=/absolute/path/to/recording.mov xcodegen generate
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
+  xcodebuild -project Utsushi.xcodeproj -scheme Utsushi \
+  -destination 'platform=macOS,arch=arm64' test \
+  -only-testing:UtsushiTests/RealAudioIntegrationTests/testProductionLengthRecordingHasNoTextInsideSilence
+```
+
+Xcode のテストランナーは呼び出し元シェルの環境変数を直接継承しないため、1行目で
+XcodeGen がテスト scheme に素材パスを渡す。未指定で生成した場合、この長尺試験だけは
+理由を表示して skip し、通常のテストには影響しない。
 
 `script/build_and_run.sh` のサブコマンド:
 

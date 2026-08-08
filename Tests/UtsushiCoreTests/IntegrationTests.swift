@@ -124,6 +124,59 @@ final class RealAudioIntegrationTests: XCTestCase {
         """)
     }
 
+    /// 任意の2時間超素材を使う本番サイズ検証。
+    /// 大容量の実録画はリポジトリへ入れないため、明示した環境変数がある時だけ走らせる。
+    func testProductionLengthRecordingHasNoTextInsideSilence() async throws {
+        guard let path = ProcessInfo.processInfo.environment["UTSUSHI_PRODUCTION_MEDIA"],
+              !path.isEmpty else {
+            throw XCTSkip("UTSUSHI_PRODUCTION_MEDIA が未指定（2時間超の実素材検証用）")
+        }
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            XCTFail("本番サイズ素材が存在しない: \(url.path)")
+            return
+        }
+        guard ModelCatalog.isInstalled(ModelCatalog.whisperModels[0]) else {
+            throw XCTSkip("whisperモデルが未導入")
+        }
+
+        var config = TranscriptionPipeline.Configuration()
+        config.language = "ja"
+        config.enableCorrection = false
+        config.autoRepair = true
+        let engine = WhisperEngine()
+        defer { engine.shutdown() }
+        let pipeline = TranscriptionPipeline(engine: engine, corrector: nil, config: config)
+
+        let t = try await pipeline.run(url: url) { progress in
+            if case .transcribing = progress.stage, Int(progress.fraction * 100) % 10 == 0 {
+                print("production progress: \(Int(progress.fraction * 100))% \(progress.message)")
+            }
+        }
+
+        XCTAssertGreaterThan(t.meta.sourceDuration, 2 * 60 * 60,
+                             "本番サイズ検証には2時間超の素材が必要")
+        XCTAssertGreaterThan(t.totalCharacters, 1_000, "長尺素材を実質的に認識できていない")
+
+        let longSilences = t.audit.stats.silentRanges.filter { $0.duration >= 20 }
+        let leaked = t.visibleSegments.filter { segment in
+            longSilences.contains { silence in
+                segment.start >= silence.start && segment.end <= silence.end
+            }
+        }
+        XCTAssertTrue(leaked.isEmpty,
+                      "無音区間に本文が残っている: "
+                      + leaked.prefix(10).map { "\(Exporter.hms($0.start))「\($0.text)」" }
+                          .joined(separator: " / "))
+
+        let dump = FileManager.default.temporaryDirectory
+            .appendingPathComponent("utsushi-production-\(UUID().uuidString).md")
+        try Exporter().render(t, as: .markdown).write(to: dump)
+        print("production result: \(String(format: "%.0f", t.meta.sourceDuration))秒 / "
+              + "\(t.visibleSegments.count)セグメント / \(t.totalCharacters)文字 / "
+              + "長無音\(longSilences.count)区間 / 出力 \(dump.path)")
+    }
+
     /// 解放 → 再準備 → 認識 が通ること。
     /// アプリ終了時に context を解放する必要があるため、解放後に壊れないことを固定する。
     func testEngineSurvivesShutdownAndReprepare() async throws {
@@ -189,5 +242,56 @@ final class RealAudioIntegrationTests: XCTestCase {
             XCTAssertEqual(Reading.key(s.original), Reading.key(s.corrected),
                            "ゲートを通ったのに読みが変わっている: \(s.original) → \(s.corrected)")
         }
+    }
+}
+
+/// キャンセル監視がパイプラインとネイティブASRコンテキストを保持し続けないこと。
+/// 以前は150ms間隔の監視Taskが終了せず、テスト終了時まで whisper_context が残って
+/// ggml Metal の静的デストラクタでアサートしていた。
+final class PipelineLifetimeTests: XCTestCase {
+    func testFailedRunReleasesPipelineWithoutBackgroundPollingTask() async throws {
+        let weakBox = WeakPipelineBox()
+        do {
+            let pipeline = TranscriptionPipeline(engine: LifetimeProbeEngine(), corrector: nil)
+            weakBox.value = pipeline
+            do {
+                let missing = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("utsushi-missing-\(UUID().uuidString).m4a")
+                _ = try await pipeline.run(
+                    url: missing,
+                    onProgress: { _ in })
+                XCTFail("存在しない入力で成功してはいけない")
+            } catch {
+                // 入力エラーはこのテストの前提。見たいのは失敗後の所有関係。
+            }
+        }
+
+        for _ in 0..<10 where weakBox.value != nil {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertNil(weakBox.value,
+                     "終了したキャンセル監視がパイプラインとASRコンテキストを保持している")
+    }
+}
+
+private final class WeakPipelineBox: @unchecked Sendable {
+    weak var value: TranscriptionPipeline?
+}
+
+private final class LifetimeProbeEngine: ASREngine, @unchecked Sendable {
+    let identifier = "lifetime-probe"
+    let displayName = "lifetime-probe"
+    let supportsVAD = false
+    let exposesConfidence = false
+    let supportsVocabularyHint = false
+
+    func prepare(progress: @escaping @Sendable (String, Double) -> Void) async throws {
+        progress("準備完了", 1)
+    }
+
+    func transcribe(_ request: ASRRequest,
+                    progress: @escaping @Sendable (Double) -> Void,
+                    isCancelled: @escaping @Sendable () -> Bool) async throws -> [Segment] {
+        []
     }
 }
