@@ -60,20 +60,55 @@ whisper 系は無音や雑音に対して必ず何かを喋る。これは確率
 同じ音声を系統の違うエンジンで認識し、出力が食い違う箇所を取り出す
 （`Sources/UtsushiCore/CrossCheck/`）。一致していれば信用でき、食い違えば怪しい。
 
-| エンジン | 系統 | ライセンス |
-|---|---|---|
-| whisper large-v3-turbo | encoder-decoder | MIT |
-| ReazonSpeech-k2-v2 | zipformer transducer | Apache-2.0 |
-| parakeet-tdt_ctc-0.6b-ja | NeMo CTC | CC BY 4.0（帰属表示が要る。出力にも自動で載る）|
+同じ11分の素材（実音声・有声160秒）での実測:
+
+| エンジン | 系統 | 速度 | 文字数 | ライセンス |
+|---|---|---|---|---|
+| whisper large-v3-turbo | encoder-decoder | 92倍速 | 1,064 | MIT |
+| SenseVoice-Small | 非自己回帰 | **90倍速** | 1,104 | Apache-2.0 |
+| ReazonSpeech-k2-v2 | zipformer transducer | 60倍速 | 952 | Apache-2.0 |
+| parakeet-tdt_ctc-0.6b-ja | NeMo CTC | 29倍速 | 1,006 | CC BY 4.0（帰属表示が要る。出力にも自動で載る）|
 
 whisper large-v3 を足しても意味が薄い。turbo はその蒸留なので誤りが相関し、
 アンサンブルとして独立していない。**系統を変えることに意味がある。**
+
+### 試して外したもの
+
+**Qwen3-ASR 0.6B（LLMデコーダ型）** は選べる状態で残してあるが、既定では勧めない。
+同じ音声・同じ設定・temperature 0・シード固定でも、プロセスをまたぐと出力が変わる
+（753 / 758 / 759 文字）。同一インスタンス内では一致するので、原因は
+onnxruntime の並列リダクション順あたりが疑わしいが**特定できていない**。
+照合の相手にすると「前回は決着した箇所が今回は未決」が起きて、CER を測っても再現しない。
+速度も 6.7 倍速で他の1桁下。設定画面にこの内容が出るようにしてある。
+
+**sherpa-onnx-sense-voice-…-2025-09-09** は使っていない。名前が続いているので
+SenseVoice の新版に見えるが、onnx のメタデータは `comment=ASLP-lab/WSYue-ASR` で
+**広東語向けの別モデル**だった。日本語を食わせるとかなが落ちて漢字だけになる
+（11分で287文字）。使っているのは 2024-07-17 版（本家 FunASR の SenseVoice-Small）。
 
 食い違いの判定は `DisagreementAdjudicator`。`@Generable enum` で
 「候補の番号」しか返せない形にしてあるので、モデルが第3の文字列を創作する余地が構造的に無い。
 読みが一致する食い違い（機構／気候）と読みが違う食い違いは別々に集計される。
 前者は音響で区別できないので文脈判断が正しい道具だが、後者は音響に情報が残っているため、
 テキストだけの判断は確度が落ちる。混ぜて「N件判定した」と報告しないのはそのため。
+
+### 表記の違いは食い違いとして数えない
+
+zipformer は「三月」、parakeet は「3月」と書く。認識は合っているのに食い違いとして並ぶ。
+
+**実測では 574 件中 29 件（5%）。** 着手前は「大半がこれだろう」と踏んでいたが外れた。
+入れる価値はある（29件は確実に無駄な確認）が、食い違いが多い主因は表記ではない。
+主因は整列の粒度で、時間窓 10 秒に対してセグメントが 20〜27 秒あるため、
+1つのセグメントが複数の窓に丸ごと入って差分が水増しされている。ここは未対応。
+
+`Notation`（`Sources/UtsushiCore/Text/`）で漢数字・全角・半角をそろえてから比較し、
+表記だけの違いは `.notation` に分類して既定では畳む。**捨てはしない**——
+「十分」と「10分」のように、表記をそろえると意味の差まで消える組み合わせがあるので、
+件数は常に出し、チェックひとつで全件表示できる。判定モデルには投げない
+（どちらが正しいかを聞く問題ではないため）。
+
+同じ正規化は要約の見張り（`SummaryGate`）でも使う。以前は要約側にだけ実装があり、
+同じ「三月／3月」が要約では同一・照合では食い違い、という状態になっていた。
 
 ## 要約
 
@@ -124,12 +159,27 @@ script/build_and_run.sh verify
 script/build_and_run.sh test
 ```
 
+`script/build_and_run.sh` のサブコマンド:
+
+| | |
+|---|---|
+| `build` / `run` | Debug ビルド、起動 |
+| `verify` | ビルドして起動し、実際にプロセスが生きているかまで確かめる |
+| `test` | 全テスト（実音声・実モデルを使うものを含む。初回はモデルのダウンロードが入る） |
+| `release` | Release ビルド |
+| `install` | Release ビルドして `/Applications` に入れる |
+| `dist` | 配布用 `.zip` を作る |
+| `icon` | アイコンを描き直す（`script/make_icon.py`） |
+| `logs` | 起動して `log stream` を張る |
+| `clean` | `build/` と生成した xcodeproj を消す |
+
 `vendor/build_sherpa.sh` がタグを固定しているのは再現性のためだが、実害もある:
 master は onnxruntime 1.27.1 を pin しているのに上流がそのリリースアセットを差し替えており、
 ハッシュ不一致で configure が落ちる。v1.13.4（1.27.0 を pin）なら通る。
 
-音声認識モデル（large-v3-turbo, 1.6GB / 照合用 153MB・655MB）は `.app` に同梱せず、
+音声認識モデル（large-v3-turbo 1.6GB / 照合用 160MB〜1.0GB）は `.app` に同梱せず、
 初回実行時に `~/Library/Application Support/Utsushi/Models` へダウンロードする。
+どのモデルがまだ手元に無く、合計いくつ落ちるかは、開始を押す前に画面に出る。
 サイズが期待値と一致しないファイルは破棄され、途中で切れたダウンロードを使うことはない。
 `Models/<モデルID>/<ファイル名>` に置くが、以前の平置きレイアウトも読めるようにしてあるので、
 更新しても 1.6GB を再取得することはない。
@@ -141,6 +191,12 @@ master は onnxruntime 1.27.1 を pin しているのに上流がそのリリー
 Developer ID で配布する場合は `CODE_SIGN_IDENTITY` と `DEVELOPMENT_TEAM` を差し替え、
 公証に回すだけでよい。whisper.cpp は静的リンクなので、署名対象の dylib は増えず
 `disable-library-validation` も不要。
+
+`script/build_and_run.sh dist` で `.zip` を作れるが、**ad-hoc 署名のままなので
+他の Mac では Gatekeeper に止められる**。受け取る側は初回だけ Finder で
+右クリック →「開く」が要る。ここを消すには Apple Developer Program（有償）の
+Developer ID 証明書と公証が必要で、このリポジトリでは対応していない。
+自分の Mac で `install` して使う分にはこの問題は起きない。
 
 ## ライセンス
 
@@ -154,6 +210,8 @@ Developer ID で配布する場合は `CODE_SIGN_IDENTITY` と `DEVELOPMENT_TEAM
 | sherpa-onnx / onnxruntime | Apache-2.0 |
 | whisper large-v3-turbo | MIT |
 | ReazonSpeech k2-v2 | Apache-2.0 |
+| SenseVoice-Small (FunASR / Alibaba) | Apache-2.0 |
+| Qwen3-ASR (Alibaba) | Apache-2.0 |
 | NVIDIA parakeet-tdt_ctc-0.6b-ja | **CC BY 4.0（帰属表示が要る）** |
 
 parakeet を照合に使った場合、帰属表示は書き出した Markdown に自動で載る。

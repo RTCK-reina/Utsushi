@@ -3,6 +3,21 @@ import SwiftUI
 /// 別エンジンとの食い違いと、その判定結果。
 struct CrossCheckPanel: View {
     let report: CrossCheckReport
+    /// 表記だけの違いを一覧に混ぜるか。
+    /// 既定では畳む。ただし件数は常に出し、開けば全部見られるようにしておく
+    /// ——「十分」と「10分」のように、表記をそろえると意味の差まで消える組み合わせが
+    /// あるので、見えなくしてはいけない。
+    @State private var showsNotationOnly = false
+
+    private var substantive: [TranscriptAlignment.Disagreement] {
+        report.disagreements.filter { $0.kind == .substantive }
+    }
+    private var notationOnly: [TranscriptAlignment.Disagreement] {
+        report.disagreements.filter { $0.kind == .notation }
+    }
+    private var listed: [TranscriptAlignment.Disagreement] {
+        showsNotationOnly ? report.disagreements : substantive
+    }
 
     var body: some View {
         if report.engines.count < 2 {
@@ -28,10 +43,12 @@ struct CrossCheckPanel: View {
             let o = report.outcome
             VStack(alignment: .leading, spacing: 3) {
                 row("食い違い", "\(report.disagreements.count)")
+                row("　うち表記だけの違い（三月 / 3月）", "\(notationOnly.count)")
+                row("　うち中身の違い", "\(substantive.count)")
                 row("判定できた", "\(o.decided)")
                 row("　うち読みが一致（同音異義語）", "\(o.decidedWithMatchingReadings)")
                 row("　うち読みが不一致（音響情報を無視した推定）", "\(o.decidedWithDifferentReadings)")
-                row("判定できず（人の目が要る）", "\(o.undecided)")
+                row("人の目が要る", "\(max(0, o.undecided - o.notationOnly))")
                 row("2回の判定が割れた", "\(o.disagreedBetweenSamples)")
                 row("判定エラー", "\(o.errors)")
             }
@@ -56,11 +73,22 @@ struct CrossCheckPanel: View {
 
     private var list: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("食い違い（\(report.disagreements.count)件）").font(.headline)
+            HStack {
+                Text("食い違い（\(listed.count)件）").font(.headline)
+                Spacer()
+                if !notationOnly.isEmpty {
+                    Toggle("表記だけの違い \(notationOnly.count)件も表示",
+                           isOn: $showsNotationOnly)
+                        .toggleStyle(.checkbox).font(.caption)
+                }
+            }
             if report.disagreements.isEmpty {
                 Text("全エンジンの出力が一致しました。").font(.caption).foregroundStyle(.secondary)
+            } else if listed.isEmpty {
+                Text("中身の違いはありません。残りは表記だけの違いです。")
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            ForEach(report.disagreements) { d in
+            ForEach(listed) { d in
                 let verdict = report.adjudications.first { $0.disagreementID == d.id }
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 8) {
@@ -71,8 +99,16 @@ struct CrossCheckPanel: View {
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background((d.readingsMatch ? Color.blue : Color.orange).opacity(0.15),
                                         in: Capsule())
+                        if d.kind == .notation {
+                            Text("表記だけ").font(.caption2)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Color.secondary.opacity(0.15), in: Capsule())
+                        }
                         Spacer()
-                        if let v = verdict, v.chosenText != nil {
+                        if d.kind == .notation {
+                            Label("判定対象外", systemImage: "minus.circle")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        } else if let v = verdict, v.chosenText != nil {
                             Label("判定済み", systemImage: "checkmark.circle")
                                 .font(.caption2).foregroundStyle(.green)
                         } else {

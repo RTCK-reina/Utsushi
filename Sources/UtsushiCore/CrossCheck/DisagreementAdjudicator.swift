@@ -55,6 +55,9 @@ public struct AdjudicationOutcome: Sendable, Codable, Equatable {
     public var decidedWithMatchingReadings: Int = 0
     /// 読みが違う不一致のうち決着した数（音響情報を無視した推定）
     public var decidedWithDifferentReadings: Int = 0
+    /// 表記だけの違い（「三月」と「3月」など）。判定にかけていない。
+    /// `total` には含まれる。人に残す件数は `undecided - notationOnly` で見る。
+    public var notationOnly: Int = 0
     public init() {}
 }
 
@@ -159,6 +162,12 @@ public struct Adjudicator: Sendable {
 
         for (i, d) in disagreements.enumerated() {
             progress?(i, disagreements.count)
+            // 表記だけの違いはモデルに投げない。
+            // 「三月」と「3月」のどちらが正しいかはモデルに聞く問題ではないし、
+            // 実データではこれが件数の大半を占めるので、投げると時間だけ食う。
+            if d.kind == .notation {
+                out.append(undecided(d)); stat.undecided += 1; stat.notationOnly += 1; continue
+            }
             guard let judge else {
                 out.append(undecided(d)); stat.undecided += 1; continue
             }

@@ -148,14 +148,20 @@ public struct Exporter: Sendable {
             let o = t.crossCheck.outcome
             out.append("| 項目 | 件数 |")
             out.append("|---|---|")
+            let notationIDs = Set(t.crossCheck.disagreements
+                .filter { $0.kind == .notation }.map(\.id))
             out.append("| 食い違い | \(t.crossCheck.disagreements.count) |")
+            out.append("| 　うち表記だけの違い（三月 / 3月）| \(notationIDs.count) |")
             out.append("| 判定できた | \(o.decided) |")
             out.append("| 　うち読みが一致（同音異義語）| \(o.decidedWithMatchingReadings) |")
             out.append("| 　うち読みが不一致（音響情報を無視した推定）| \(o.decidedWithDifferentReadings) |")
-            out.append("| 判定できず | \(o.undecided) |")
+            out.append("| 人の目が要る | \(max(0, o.undecided - o.notationOnly)) |")
             out.append("| 2回の判定が割れた | \(o.disagreedBetweenSamples) |")
             out.append("")
-            let unresolved = t.crossCheck.adjudications.filter { $0.chosenText == nil }
+            // 表記だけの違いは一覧から外す。認識の誤りではないものが並ぶと、
+            // 本当に見るべき箇所が埋もれる。件数は上の表に残してある。
+            let unresolved = t.crossCheck.adjudications
+                .filter { $0.chosenText == nil && !notationIDs.contains($0.disagreementID) }
             if !unresolved.isEmpty {
                 out.append("#### 判定できなかった食い違い（人の目で確認）\n")
                 for a in unresolved.prefix(50) {

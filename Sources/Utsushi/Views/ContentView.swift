@@ -37,11 +37,21 @@ struct ContentView: View {
             if model.isRunning {
                 ProgressView(value: model.progress).frame(width: 180)
                 Button("キャンセル") { model.cancel() }
+            } else if model.sourceURL == nil {
+                // ファイルが無いときに「開始」を押せない形で置くと、
+                // 押しても何も起きないボタンが画面に残る。
+                // 押せるボタンは常に1つだけにして、次にやることを迷わせない。
+                SettingsLink { Image(systemName: "gearshape") }
+                    .help("設定（⌘,）")
+                Button("ファイルを選ぶ…") { model.presentOpenPanel() }
+                    .keyboardShortcut(.return)
+                    .buttonStyle(.borderedProminent)
             } else {
-                Button("ファイルを開く…") { model.presentOpenPanel() }
+                SettingsLink { Image(systemName: "gearshape") }
+                    .help("設定（⌘,）")
+                Button("別のファイル…") { model.presentOpenPanel() }
                 Button("文字起こし開始") { model.start() }
                     .keyboardShortcut(.return)
-                    .disabled(model.sourceURL == nil)
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -56,6 +66,11 @@ struct ContentView: View {
             Text("動画・音声ファイルをここにドロップ").font(.title3)
             Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式")
                 .font(.caption).foregroundStyle(.secondary)
+            // ドロップだけだと「ドロップ以外の道が無い」ように見える。
+            Button("ファイルを選ぶ…") { model.presentOpenPanel() }
+                .controlSize(.large)
+            Text("音声はこの Mac の中だけで処理される。外部への送信は無い。")
+                .font(.caption2).foregroundStyle(.secondary)
             capabilityBadges
             Spacer()
         }
@@ -77,14 +92,42 @@ struct ContentView: View {
         }
     }
 
+    /// いまの設定で、まだ手元に無いモデル。
+    /// 「開始」を押してから10分待たされて初めてダウンロードだと気づく、
+    /// という状態にしないために先に出す。
+    private var pendingDownload: (count: Int, bytes: Int64) {
+        var wanted: [ModelCatalog.Model] = []
+        if model.settings.engineChoice == .whisper,
+           let m = ModelCatalog.whisperModels.first(where: { $0.id == model.settings.whisperModelID }) {
+            wanted.append(m)
+        }
+        wanted += ModelCatalog.sherpaModels.filter { model.settings.crossCheckModelIDs.contains($0.id) }
+        let missing = wanted.filter { !ModelCatalog.isInstalled($0) }
+        return (missing.count, missing.reduce(0) { $0 + $1.approximateBytes })
+    }
+
     private var capabilityBadges: some View {
-        HStack(spacing: 8) {
-            badge("エンジン", model.settings.engineChoice == .whisper ? "whisper.cpp" : "Apple", .blue)
-            switch model.correctionAvailability {
-            case .available:
-                badge("校正LLM", "利用可能", .green)
-            case .unavailable(let reason):
-                badge("校正LLM", reason, .orange)
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                badge("エンジン", model.settings.engineChoice == .whisper ? "whisper.cpp" : "Apple", .blue)
+                if model.settings.crossCheckModelIDs.isEmpty {
+                    badge("照合", "なし", .secondary)
+                } else {
+                    badge("照合", "\(model.settings.crossCheckModelIDs.count) エンジン", .blue)
+                }
+                switch model.correctionAvailability {
+                case .available:
+                    badge("校正LLM", "利用可能", .green)
+                case .unavailable(let reason):
+                    badge("校正LLM", reason, .orange)
+                }
+            }
+            let pending = pendingDownload
+            if pending.bytes > 0 {
+                Label("初回だけ \(ModelCatalog.sizeText(pending.bytes)) のダウンロードが入る"
+                      + "（モデル \(pending.count) 件）",
+                      systemImage: "arrow.down.circle")
+                    .font(.caption).foregroundStyle(.orange)
             }
         }
         .padding(.top, 6)

@@ -46,6 +46,43 @@ case "$MODE" in
     quit_running; build; open -n "$APP_BUNDLE"
     log stream --predicate "process == \"$APP_NAME\"" --level debug
     ;;
+  release)
+    CONFIG=Release
+    APP_BUNDLE="$ROOT/build/Release/$APP_NAME.app"
+    quit_running; build
+    echo "できたもの: $APP_BUNDLE"
+    codesign -dv --verbose=2 "$APP_BUNDLE" 2>&1 | sed -n '1,6p'
+    ;;
+  install)
+    # /Applications に置く。既存があれば置き換える。
+    CONFIG=Release
+    APP_BUNDLE="$ROOT/build/Release/$APP_NAME.app"
+    quit_running; build
+    rm -rf "/Applications/$APP_NAME.app"
+    cp -R "$APP_BUNDLE" "/Applications/$APP_NAME.app"
+    echo "/Applications/$APP_NAME.app に入れた"
+    ;;
+  dist)
+    # 配布用の .zip を作る。
+    #
+    # 注意: ad-hoc 署名なので、他の Mac に渡すと Gatekeeper に止められる。
+    # 受け取る側は Finder で右クリック →「開く」か、
+    #   xattr -dr com.apple.quarantine /Applications/Utsushi.app
+    # が要る。これを消すには Apple Developer Program（有償）の
+    # Developer ID 証明書と公証が要るので、ここでは対応しない。
+    CONFIG=Release
+    APP_BUNDLE="$ROOT/build/Release/$APP_NAME.app"
+    quit_running; build
+    VER=$(defaults read "$APP_BUNDLE/Contents/Info" CFBundleShortVersionString)
+    OUT="$ROOT/build/$APP_NAME-$VER-arm64.zip"
+    rm -f "$OUT"
+    ditto -c -k --keepParent "$APP_BUNDLE" "$OUT"
+    echo "できたもの: $OUT"
+    echo "受け取る側は初回だけ右クリック →「開く」が要る（ad-hoc 署名のため）"
+    ;;
+  icon)
+    python3 "$ROOT/script/make_icon.py"
+    ;;
   clean) rm -rf "$ROOT/build" "$ROOT/$APP_NAME.xcodeproj" ;;
-  *) echo "usage: $0 {build|run|verify|test|logs|clean}"; exit 2 ;;
+  *) echo "usage: $0 {build|run|verify|test|logs|release|install|dist|icon|clean}"; exit 2 ;;
 esac

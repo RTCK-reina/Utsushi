@@ -13,20 +13,26 @@ final class Qwen3ASRTests: XCTestCase {
             .appendingPathComponent("fixtures/testclip.m4a")
     }()
 
-    /// カタログにある Qwen3-ASR を全部（0.6B / 1.7B）同じ素材で回して並べる。
+    /// 導入済みの Qwen3-ASR を同じ素材で回して並べる。
     /// サイズを上げた効果があるのかを、憶測ではなく同一条件で見る。
     func testAllQwen3ModelsTranscribeAndAreDeterministic() async throws {
         guard FileManager.default.fileExists(atPath: Self.clipURL.path) else {
             throw XCTSkip("検証用クリップが無い")
         }
         let models = ModelCatalog.sherpaModels.filter { $0.engine == .sherpaQwen3ASR }
-        guard !models.isEmpty else { throw XCTSkip("qwen3-asr がカタログに無い") }
+        // 導入済みのものだけを回す。
+        // Qwen3 はプロセス間で再現しないと分かったのでモデル実体は消してあり、
+        // ここで未導入のものまで回すと 940MB の再取得が走ってしまう。
+        let installed = models.filter { ModelCatalog.isInstalled($0) }
+        guard !installed.isEmpty else {
+            throw XCTSkip("導入済みの qwen3-asr が無い（設定で有効にすると取得される）")
+        }
 
         let audio = try await AudioExtractor().extract(url: Self.clipURL,
                                                        progress: { _ in }, isCancelled: { false })
         var summaries: [String] = []
 
-        for model in models {
+        for model in installed {
             let engine = SherpaEngine(model: model)
             let t0 = Date()
             do {
@@ -61,10 +67,10 @@ final class Qwen3ASRTests: XCTestCase {
 
             XCTAssertFalse(first.isEmpty, "[" + model.id + "] セグメントが1件も返っていない")
             XCTAssertGreaterThan(a.count, 200, "[" + model.id + "] 文字数が少なすぎる")
-            let japanese = a.unicodeScalars.filter {
-                (0x3040...0x30FF).contains($0.value) || (0x4E00...0x9FFF).contains($0.value)
-            }.count
-            XCTAssertGreaterThan(Double(japanese) / Double(max(a.count, 1)), 0.5,
+            // 判定は `JapaneseTextCheck`。漢字比率ではなくかな比率で見る
+            // （漢字比率では中国語と区別できない、句読点と算用数字で値が動く）。
+            XCTAssertGreaterThan(JapaneseTextCheck.kanaRatio(a),
+                                 JapaneseTextCheck.minimumKanaRatio,
                                  "[" + model.id + "] 日本語になっていない: " + String(a.prefix(80)))
             XCTAssertGreaterThan(first.last?.end ?? 0, 60, "[" + model.id + "] 後半が認識されていない")
             // 注意: これは**同一プロセス内**の一致しか見ていない。

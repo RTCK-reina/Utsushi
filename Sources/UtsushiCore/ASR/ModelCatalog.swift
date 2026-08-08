@@ -39,14 +39,20 @@ public struct ModelCatalog: Sendable {
         public var note: String
         /// 再配布・表示に必要な帰属表示（CC-BY 等）。nil なら不要。
         public var attribution: String?
+        /// 実測して分かった落とし穴。nil なら特に無い。
+        ///
+        /// カタログから消してしまうと「なぜ使わないのか」が失われ、
+        /// 数か月後に同じモデルをまた試すことになる。使えると分かっているものは
+        /// 選べる状態のまま、分かっている欠点を画面に出す。
+        public var caveat: String?
 
         public init(id: String, displayName: String, engine: EngineKind, items: [Item],
                     archiveURL: URL? = nil, approximateBytes: Int64,
-                    note: String, attribution: String? = nil) {
+                    note: String, attribution: String? = nil, caveat: String? = nil) {
             self.id = id; self.displayName = displayName; self.engine = engine
             self.items = items; self.archiveURL = archiveURL
             self.approximateBytes = approximateBytes; self.note = note
-            self.attribution = attribution
+            self.attribution = attribution; self.caveat = caveat
         }
     }
 
@@ -128,53 +134,51 @@ public struct ModelCatalog: Sendable {
               archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25.tar.bz2")!,
               approximateBytes: 940_000_000,
               note: "LLMデコーダ型。文脈から補うので、音響に無い語を書くことがある",
-              attribution: "This product includes Qwen3-ASR by Alibaba, licensed under Apache-2.0."),
-        // 1.7B。sherpa-onnx の公式リリースには 0.6B しか無いので、
-        // HF 上の sherpa-onnx 形式の書き出しから個別ファイルで取る。
-        //
-        // 素性について: 公開者は sherpa-onnx のメンテナ本人ではない。
-        // ただし tokenizer の3ファイルは公式 0.6B とサイズが完全一致しており
-        // （vocab 2,776,833 / merges 1,671,853 / config 12,487）、
-        // 全ファイルのサイズを固定してあるので差し替えは検出できる。
-        // それでも「第三者が書き出した ONNX をローカルで実行する」ことに変わりはない。
-        Model(id: "sherpa-qwen3-asr-1.7b",
-              displayName: "Qwen3-ASR 1.7B (int8・非公式ビルド)",
-              engine: .sherpaQwen3ASR,
-              items: [
-                Item(role: "conv_frontend", fileName: "conv_frontend.onnx",
-                     url: URL(string: BASE_URL + "conv_frontend.onnx")!, sizeBytes: 48_080_441),
-                Item(role: "encoder", fileName: "encoder.int8.onnx",
-                     url: URL(string: BASE_URL + "encoder.int8.onnx")!, sizeBytes: 314_222_162),
-                Item(role: "decoder", fileName: "decoder.int8.onnx",
-                     url: URL(string: BASE_URL + "decoder.int8.onnx")!, sizeBytes: 2_037_458_645),
-                Item(role: "vocab", fileName: "vocab.json",
-                     url: URL(string: BASE_URL + "tokenizer/vocab.json")!, sizeBytes: 2_776_833),
-                Item(role: "merges", fileName: "merges.txt",
-                     url: URL(string: BASE_URL + "tokenizer/merges.txt")!, sizeBytes: 1_671_853),
-                Item(role: "tokenizer_config", fileName: "tokenizer_config.json",
-                     url: URL(string: BASE_URL + "tokenizer/tokenizer_config.json")!, sizeBytes: 12_487),
-              ],
-              approximateBytes: 2_404_222_421,
-              note: "0.6B より大きい。ベンチのCER 0.140 はこのサイズの数字",
-              attribution: "This product includes Qwen3-ASR by Alibaba, licensed under Apache-2.0."),
+              attribution: "This product includes Qwen3-ASR by Alibaba, licensed under Apache-2.0.",
+              caveat: """
+                      実行のたびに出力が変わる（同じ音声・同じ設定で 753 / 758 / 759 文字）。\
+                      同一インスタンス内なら一致するが、プロセスをまたぐと一致しない。\
+                      temperature=0・seed 固定・スレッド1でも消えず、原因は未特定。\
+                      照合の相手にすると「前回は決着した箇所が今回は未決」が起き、\
+                      CER を測っても再現しない。速度も 6.7 倍速と他の 5〜10 分の1。
+                      """),
+        // 1.7B（非公式ビルド）は外した。
+        // 公式リリースに無いので第三者が書き出した ONNX を取る形になり、
+        // しかも 0.6B と同じ構造なので**同じ非決定性を引き継ぐ見込みが高い**。
+        // 2.4GB 落として確かめるだけの見返りが無いと判断した。
+        // 必要になったら git log の db5be56 に定義が残っている。
         // 非自己回帰。1回の前向き計算で全トークンを出すので、
         // 生成型のように「文脈から補って書く」ことがない。
         // 照合の相方としては Qwen3 より筋が良い（作文しない・揺れない）。
         // ITN（数字や単位の正規化）は切る。表記を書き換えられると
         // 照合の食い違いが「認識の違い」ではなく「表記の違い」で埋まる。
-        Model(id: "sherpa-sense-voice",
-              displayName: "SenseVoice (fp32・多言語)",
+        // 2025-09-09 版は使わない。
+        //
+        // ファイル名が sense-voice-zh-en-ja-ko-yue と続いているので同じ系列に見えるが、
+        // onnx のメタデータを読むと `comment=ASLP-lab/WSYue-ASR`、
+        // `url=https://huggingface.co/ASLP-lab/WSYue-ASR` で、**広東語向けの別モデル**だった。
+        // SenseVoice の構造を流用しているだけで、作者も学習データも違う。
+        //
+        // 日本語を食わせると、かなが落ちて漢字だけの中国語寄りの出力になる
+        // （11分の素材で287文字。whisper は1,064文字）。
+        // language を ja / zh / en / 空 のどれにしても出力はほぼ同じで、
+        // 「言語指定が効いていない」のではなく**そもそも日本語のモデルではない**。
+        //
+        // 名前が続いているだけで中身が別物、というのはリリース名からは読み取れない。
+        // 新しいモデルを足すときは onnx のメタデータを見ること。
+        Model(id: "sherpa-sense-voice-2024-07-17",
+              displayName: "SenseVoice Small (int8・多言語)",
               engine: .sherpaSenseVoice,
               items: [
-                Item(role: "model", fileName: "model.onnx",
-                     pathInArchive: "model.onnx", sizeBytes: 0),
+                Item(role: "model", fileName: "model.int8.onnx",
+                     pathInArchive: "model.int8.onnx", sizeBytes: 0),
                 Item(role: "tokens", fileName: "tokens.txt",
                      pathInArchive: "tokens.txt", sizeBytes: 0),
               ],
-              archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2025-09-09.tar.bz2")!,
-              approximateBytes: 886_000_000,
-              note: "非自己回帰。作文せず、実行ごとに揺れない",
-              attribution: "This product includes SenseVoice by Alibaba (FunASR)."),
+              archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2")!,
+              approximateBytes: 1_047_870_769,
+              note: "非自己回帰。作文せず、実行ごとに揺れない（書庫1.0GB／展開後は約240MB）",
+              attribution: "This product includes SenseVoice-Small by Alibaba (FunASR), Apache-2.0."),
         Model(id: "sherpa-parakeet-ja",
               displayName: "NVIDIA Parakeet ja (nemo-ctc int8)",
               engine: .sherpaNemoCTC,

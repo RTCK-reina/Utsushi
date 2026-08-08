@@ -8,9 +8,27 @@
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
   <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleIconName</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSHumanReadableCopyright</key><string>© RTCK</string>
   <key>NSSupportsAutomaticTermination</key><true/>
+  <!-- Finder から「このアプリケーションで開く」に出るようにする。
+       Viewer 止まりにしてあるのは、書き換えないため。 -->
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>動画・音声</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>public.movie</string>
+        <string>public.audio</string>
+        <string>public.audiovisual-content</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>

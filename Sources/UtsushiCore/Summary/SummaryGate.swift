@@ -86,97 +86,22 @@ public struct SummaryGate: Sendable {
 
     /// 半角数字・全角数字・漢数字を同じ土俵に載せてから比較する。
     /// 「3件」を「三件」と書き換えただけで落とすと、まともな見出しが全部落ちる。
+    ///
+    /// 実体は `Notation` にある。以前はここにだけ漢数字の解釈があり、
+    /// 照合側（`TranscriptAlignment`）には無かったので、
+    /// 同じ「三月／3月」が要約では同一・照合では食い違い、という状態になっていた。
     static func numberTokens(_ s: String) -> Set<String> {
-        var out: Set<String> = []
-        var arabic = ""
-        var kanji = ""
-
-        func flushArabic() {
-            if !arabic.isEmpty { out.insert(arabic); arabic = "" }
-        }
-        func flushKanji() {
-            if !kanji.isEmpty {
-                if let v = parseKanjiNumber(kanji) { out.insert(String(v)) }
-                kanji = ""
-            }
-        }
-
-        for ch in s {
-            if let d = Self.arabicDigit(ch) {
-                flushKanji(); arabic += d
-            } else if Self.kanjiNumeral.contains(ch) {
-                flushArabic(); kanji.append(ch)
-            } else {
-                flushArabic(); flushKanji()
-            }
-        }
-        flushArabic(); flushKanji()
-        return out
+        Notation.numberTokens(s)
     }
 
-    private static let kanjiDigits: [Character: Int] = [
-        "〇": 0, "零": 0, "一": 1, "二": 2, "三": 3, "四": 4,
-        "五": 5, "六": 6, "七": 7, "八": 8, "九": 9
-    ]
-    private static let kanjiSmallUnits: [Character: Int] = ["十": 10, "百": 100, "千": 1000]
-    private static let kanjiBigUnits: [Character: Int] = ["万": 10_000, "億": 100_000_000]
-    private static let kanjiNumeral: Set<Character> =
-        Set(kanjiDigits.keys).union(kanjiSmallUnits.keys).union(kanjiBigUnits.keys)
-
-    private static func arabicDigit(_ ch: Character) -> String? {
-        if ch.isASCII, ch.isNumber { return String(ch) }
-        if let a = ch.unicodeScalars.first, a.value >= 0xFF10, a.value <= 0xFF19 {
-            return String(a.value - 0xFF10)   // 全角数字
-        }
-        return nil
-    }
+    private static let kanjiNumeral: Set<Character> = Notation.kanjiNumeral
 
     /// 漢数字を整数に直す。
     /// 位取りが無い並び（〇八〇 のような読み上げ）は桁の連結として扱う。
     /// 解釈できない並びは nil を返し、その場合は数値トークンとして数えない
     /// （数えると「解釈に失敗した」ことが「新しい数値が出た」に化けてしまう）。
     static func parseKanjiNumber(_ s: String) -> Int? {
-        let chars = Array(s)
-        guard !chars.isEmpty else { return nil }
-
-        let hasUnit = chars.contains { kanjiSmallUnits[$0] != nil || kanjiBigUnits[$0] != nil }
-        if !hasUnit {
-            // 位取りが無いので桁の並びとして読む
-            var digits = ""
-            for c in chars {
-                guard let d = kanjiDigits[c] else { return nil }
-                digits += String(d)
-            }
-            return Int(digits)
-        }
-
-        var total = 0        // 万・億で確定した分
-        var section = 0      // 現在の万未満の塊
-        var current = 0      // 直前の数字
-        var sawAnything = false
-
-        for c in chars {
-            if let d = kanjiDigits[c] {
-                current = current * 10 + d
-                sawAnything = true
-            } else if let u = kanjiSmallUnits[c] {
-                // 「十」は前に数字が無ければ 1（十五＝15）
-                section += (current == 0 ? 1 : current) * u
-                current = 0
-                sawAnything = true
-            } else if let b = kanjiBigUnits[c] {
-                section += current
-                current = 0
-                if section == 0 { return nil }   // 「万」単独などは解釈しない
-                total += section * b
-                section = 0
-                sawAnything = true
-            } else {
-                return nil
-            }
-        }
-        guard sawAnything else { return nil }
-        return total + section + current
+        Notation.parseKanjiNumber(s)
     }
 
     /// 3文字以上のカタカナ連続。長音・中黒は語の一部として扱う。

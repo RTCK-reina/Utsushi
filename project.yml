@@ -37,6 +37,10 @@ targets:
       - path: Sources/UtsushiCore
       - path: Sources/Utsushi
         excludes: ["Bridging-Header.h"]
+      # AppIcon.png は .icns の素になっただけで、バンドルには要らない。
+      - path: Resources
+        buildPhase: resources
+        excludes: ["AppIcon.png"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.rtck.Utsushi

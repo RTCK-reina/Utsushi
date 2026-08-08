@@ -225,6 +225,8 @@ public actor SherpaEngine: ASREngine {
         let text = String(cString: result.pointee.text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return [] }
 
+        let end = startOffset + Double(samples.count) / AudioExtractor.sampleRate
+
         // トークン単位のタイムスタンプがあれば、それを使って発話単位に組み直す。
         let count = Int(result.pointee.count)
         if count > 0, let stamps = result.pointee.timestamps, let arr = result.pointee.tokens_arr {
@@ -235,13 +237,50 @@ public actor SherpaEngine: ASREngine {
                 let t = String(cString: cs)
                 tokens.append((t, Double(stamps[i]) + startOffset))
             }
-            let grouped = groupTokens(tokens, fallbackEnd: startOffset + Double(samples.count) / AudioExtractor.sampleRate)
-            if !grouped.isEmpty { return grouped }
+            let grouped = groupTokens(tokens, fallbackEnd: end)
+            let rebuilt = grouped.map(\.text).joined()
+
+            debugLog("tokens=\(count) text=\(text.count)文字 rebuilt=\(rebuilt.count)文字 "
+                     + "segments=\(grouped.count) 先頭token=\(tokens.prefix(6).map(\.0)) "
+                     + "先頭stamp=\(tokens.prefix(6).map { String(format: "%.2f", $0.1) })")
+
+            // **組み直した本文がエンジンの本文より短ければ、組み直しは信用しない。**
+            //
+            // SenseVoice は発話単位でしか結果を出さないモデルで、
+            // tokens_arr / timestamps が本文と対応していない。それに気づかず
+            // 組み直した結果、1,000文字あるはずの音声から287文字しか出ていなかった。
+            // しかも「日本語が返っている」ことは確認していたので気づけなかった。
+            //
+            // エンジン種別で分岐せず、長さの比較という機械的な条件で弾く。
+            // 新しいモデルを足したときに同じ穴に落ちないため。
+            if !grouped.isEmpty, comparableCount(rebuilt) * 20 >= comparableCount(text) * 19 {
+                return grouped
+            }
+            if !grouped.isEmpty {
+                debugLog("トークン再構成が本文を取りこぼしたので破棄した"
+                         + "（\(comparableCount(rebuilt))/\(comparableCount(text))）")
+            }
         }
 
-        // タイムスタンプが取れない場合はチャンク全体を1セグメントにする
-        let end = startOffset + Double(samples.count) / AudioExtractor.sampleRate
+        // タイムスタンプが取れない、または取りこぼしている場合は
+        // チャンク全体を1セグメントにする。時間分解能は落ちるが本文は落ちない。
         return [Segment(start: startOffset, end: end, original: text)]
+    }
+
+    /// 長さ比較用の文字数。空白と約物は数えない。
+    /// エンジンによって句読点の入れ方が違うため、そのままだと比較にならない。
+    private static func comparableCount(_ s: String) -> Int {
+        s.unicodeScalars.filter {
+            !CharacterSet.whitespacesAndNewlines.contains($0)
+                && !CharacterSet.punctuationCharacters.contains($0)
+        }.count
+    }
+
+    /// `UTSUSHI_ASR_DEBUG=1` のときだけ出す。
+    /// 通常利用で標準出力を汚さず、調査のときは何が起きたか見える状態にしておく。
+    private static func debugLog(_ message: @autoclosure () -> String) {
+        guard ProcessInfo.processInfo.environment["UTSUSHI_ASR_DEBUG"] == "1" else { return }
+        print("[sherpa] " + message())
     }
 
     /// トークン列を発話単位にまとめる。文末記号か一定以上の間で区切る。

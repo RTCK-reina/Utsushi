@@ -13,6 +13,17 @@ public enum TranscriptAlignment {
         public init(engine: String, text: String) { self.engine = engine; self.text = text }
     }
 
+    /// 食い違いの種類。
+    ///
+    /// `.notation` は「三月」と「3月」のように、表記だけが違うもの。
+    /// 認識の誤りではないので既定では人に見せないが、**捨てはしない**。
+    /// 表記をそろえると「十分」と「10分」のように意味の違いまで消える組み合わせが
+    /// 存在するので、後から見返せる形で残しておく必要がある。
+    public enum Kind: String, Sendable, Codable, Equatable {
+        case substantive
+        case notation
+    }
+
     public struct Disagreement: Sendable, Codable, Equatable, Identifiable {
         public var id: UUID
         public var start: Double
@@ -25,11 +36,28 @@ public enum TranscriptAlignment {
         public var readingsMatch: Bool
         /// 前後の文脈（判定材料。書き換え対象ではない）
         public var context: String
+        /// 表記だけの違いか、中身の違いか。
+        public var kind: Kind
 
         public init(id: UUID = UUID(), start: Double, end: Double,
-                    candidates: [Candidate], readingsMatch: Bool, context: String) {
+                    candidates: [Candidate], readingsMatch: Bool, context: String,
+                    kind: Kind = .substantive) {
             self.id = id; self.start = start; self.end = end
             self.candidates = candidates; self.readingsMatch = readingsMatch; self.context = context
+            self.kind = kind
+        }
+
+        /// 古い JSON（`kind` が無いもの）を読めるようにしておく。
+        /// 既存の書き出しを壊さないため。
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(UUID.self, forKey: .id)
+            start = try c.decode(Double.self, forKey: .start)
+            end = try c.decode(Double.self, forKey: .end)
+            candidates = try c.decode([Candidate].self, forKey: .candidates)
+            readingsMatch = try c.decode(Bool.self, forKey: .readingsMatch)
+            context = try c.decode(String.self, forKey: .context)
+            kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .substantive
         }
     }
 
@@ -73,6 +101,17 @@ public enum TranscriptAlignment {
                     if max(ta.count, tb.count) < minSpanCharacters { continue }
                     if normalize(ta) == normalize(tb) { continue }  // 句読点だけの差は無視
 
+                    // 数値の書き方・全角半角だけの違いは `.notation` に落とす。
+                    // whisper は「3」、zipformer は「三」と書く。
+                    //
+                    // 実測は 574件中29件（5%）。着手前は「大半がこれ」と踏んでいたが外れた。
+                    // 食い違いが多い主因は表記ではなく整列の粒度で、
+                    // 時間窓10秒に対しセグメントが20〜27秒あるため、
+                    // 1つのセグメントが複数の窓に丸ごと入って差分が水増しされている。
+                    // そちらは未対応。
+                    let kind: Kind = Notation.comparisonKey(ta) == Notation.comparisonKey(tb)
+                        ? .notation : .substantive
+
                     let cands = [Candidate(engine: runs[0].engine, text: ta),
                                  Candidate(engine: runs[i].engine, text: tb)]
                     let keys = Set(cands.map { Reading.key($0.text) })
@@ -80,7 +119,8 @@ public enum TranscriptAlignment {
                         start: windowStart, end: windowEnd,
                         candidates: cands,
                         readingsMatch: keys.count == 1 && !(keys.first?.isEmpty ?? true),
-                        context: contextAround(reference, span: span.a)))
+                        context: contextAround(reference, span: span.a),
+                        kind: kind))
                 }
             }
         }

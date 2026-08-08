@@ -40,7 +40,18 @@ final class EndToEndTests: XCTestCase {
         let audio = try await AudioExtractor().extract(url: url, progress: { _ in }, isCancelled: { false })
         XCTAssertGreaterThan(audio.samples.count, 0)
 
-        for model in ModelCatalog.sherpaModels {
+        // 導入済みのものを回す。カタログには「選べるが既定では勧めない」モデル
+        // （Qwen3）も載っているので、全部回すとテストのたびに数 GB の取得が走る。
+        //
+        // 何も入っていない環境では、取得と展開の経路自体を通したいので
+        // 一番小さいものを1つだけ落とす。
+        let installed = ModelCatalog.sherpaModels.filter { ModelCatalog.isInstalled($0) }
+        let targets = installed.isEmpty
+            ? [ModelCatalog.sherpaModels.min { $0.approximateBytes < $1.approximateBytes }].compactMap { $0 }
+            : installed
+        XCTAssertFalse(targets.isEmpty, "照合エンジンがカタログに1つも無い")
+
+        for model in targets {
             let t0 = Date()
             let engine = SherpaEngine(model: model)
             do {
@@ -78,12 +89,21 @@ final class EndToEndTests: XCTestCase {
 
             XCTAssertFalse(segs.isEmpty, "[\(model.id)] セグメントが1件も返っていない")
             XCTAssertGreaterThan(text.count, 200, "[\(model.id)] 文字数が少なすぎる。実質認識できていない疑い")
-            // 日本語が返っていること。トークン解釈を間違えると記号列や英字になる。
-            let japanese = text.unicodeScalars.filter {
-                (0x3040...0x30FF).contains($0.value) || (0x4E00...0x9FFF).contains($0.value)
-            }.count
-            XCTAssertGreaterThan(Double(japanese) / Double(max(text.count, 1)), 0.5,
-                                 "[\(model.id)] 日本語になっていない: \(text.prefix(80))")
+            // 日本語が返っていること。
+            //
+            // 以前はここを「かな＋CJK漢字 / 全文字」で見ていた。これには穴が2つあった:
+            //   1. 中国語を検出できない。漢字は中国語も同じ範囲を使う。
+            //      実際、広東語モデルの壊れた出力がこの条件を通ってしまった
+            //   2. 分母に句読点と算用数字が入るので、表記の癖で比率が動く。
+            //      Qwen3 は「3月」と算用数字で書き句読点も打つので 0.471 になり、
+            //      正しい日本語なのに 0.5 を割った
+            // かな / (かな+漢字) で見れば、壊れた出力 0.00 に対し実エンジンは 0.6 以上で、
+            // 間が十分に開く。
+            XCTAssertGreaterThan(JapaneseTextCheck.kanaRatio(text),
+                                 JapaneseTextCheck.minimumKanaRatio,
+                                 "[\(model.id)] 日本語になっていない"
+                                 + "（かな比率 \(String(format: "%.2f", JapaneseTextCheck.kanaRatio(text)))）: "
+                                 + "\(text.prefix(80))")
             XCTAssertGreaterThan(segs.last?.end ?? 0, 60, "[\(model.id)] 後半が認識されていない")
         }
     }
@@ -99,8 +119,18 @@ final class EndToEndTests: XCTestCase {
             throw XCTSkip("Foundation Models が利用できない")
         }
 
+        // 照合は導入済みのエンジンで行う。
+        // カタログ全件を指定していたが、そこには「選べるが既定では勧めない」
+        // Qwen3 も入るので、テストを回すたびに 940MB の取得が走っていた
+        // （実際に走った）。このテストが見たいのはパイプラインが最後まで通ることで、
+        // カタログの全件網羅ではない。
+        let installedSherpa = ModelCatalog.sherpaModels.filter { ModelCatalog.isInstalled($0) }
+        guard installedSherpa.count >= 2 else {
+            throw XCTSkip("照合できるエンジンが2つ以上導入されていない")
+        }
+
         var settings = SessionSettings()
-        settings.crossCheckModelIDs = Set(ModelCatalog.sherpaModels.map(\.id))
+        settings.crossCheckModelIDs = Set(installedSherpa.map(\.id))
         settings.enableSummary = true
         settings.enableCorrection = true
         settings.adjudicateDisagreements = true
@@ -112,7 +142,7 @@ final class EndToEndTests: XCTestCase {
         ]
         let config = settings.makeConfiguration(dictionary: dict,
                                                 hasCorrector: true, hasJudge: true, hasSummarizer: true)
-        XCTAssertEqual(config.crossCheckEngines.count, ModelCatalog.sherpaModels.count)
+        XCTAssertEqual(config.crossCheckEngines.count, installedSherpa.count)
 
         let pipeline = TranscriptionPipeline(
             engine: WhisperEngine(),
@@ -153,11 +183,30 @@ final class EndToEndTests: XCTestCase {
         // 照合が本当に走ったこと。パイプラインは失敗を握りつぶすので必ず主張する。
         XCTAssertGreaterThanOrEqual(t.crossCheck.engines.count, 3,
                                     "照合エンジンが結果に入っていない＝黙って失敗している")
-        for m in ModelCatalog.sherpaModels {
+        for m in installedSherpa {
             XCTAssertTrue(t.crossCheck.engines.contains(m.id), "\(m.id) が照合に参加していない")
         }
         XCTAssertFalse(t.crossCheck.disagreements.isEmpty,
                        "系統の違うエンジン3つで食い違いが0件はありえない。整列が機能していない疑い")
+
+        // 表記の分類が**実データで実際に効いている**こと。
+        // 単体テストが通るだけの機能を作って画面に繋がっていない、という失敗を
+        // この構成で何度もやっているので、実データでの発火を必ず主張する。
+        // zipformer は「三月」、parakeet は「3月」と書くので、0件ならどこかで死んでいる。
+        let notation = t.crossCheck.disagreements.filter { $0.kind == .notation }
+        let substantive = t.crossCheck.disagreements.filter { $0.kind == .substantive }
+        print("""
+              　うち表記だけ: \(notation.count) / 中身の違い: \(substantive.count) \
+              （判定に投げなかった表記差: \(t.crossCheck.outcome.notationOnly)）
+              """)
+        XCTAssertFalse(notation.isEmpty,
+                       "表記だけの違いが1件も分類されていない。Notation が繋がっていない疑い")
+        XCTAssertEqual(notation.count, t.crossCheck.outcome.notationOnly,
+                       "分類した件数と、判定を飛ばした件数が合っていない")
+        for d in notation.prefix(5) {
+            print("  表記差: " + d.candidates.map { "\($0.engine.suffix(12))「\($0.text)」" }
+                .joined(separator: " / "))
+        }
         XCTAssertTrue(stages.contains("crossChecking"), "照合の段に入っていない")
         XCTAssertTrue(stages.contains("summarizing"), "要約の段に入っていない")
 

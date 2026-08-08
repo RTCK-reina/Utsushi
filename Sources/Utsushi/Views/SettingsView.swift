@@ -3,6 +3,23 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var model: AppModel
 
+    /// dBFS は音の分野の外では通じない。数値は残しつつ、意味の分かる語を添える。
+    private var silenceLabel: String {
+        switch model.settings.silenceDBFS {
+        case ..<(-55): return "かなり静かでも拾う"
+        case ..<(-40): return "標準"
+        case ..<(-32): return "やや厳しい"
+        default:       return "はっきりした声だけ"
+        }
+    }
+
+    /// 選択済みでまだ手元に無いモデルの合計。押す前に総量が見えるようにする。
+    private var pendingCrossCheckBytes: Int64 {
+        ModelCatalog.sherpaModels
+            .filter { model.settings.crossCheckModelIDs.contains($0.id) && !ModelCatalog.isInstalled($0) }
+            .reduce(0) { $0 + $1.approximateBytes }
+    }
+
     var body: some View {
         TabView {
             engineTab.tabItem { Label("エンジン", systemImage: "waveform") }
@@ -44,20 +61,40 @@ struct SettingsView: View {
                 }
             }
 
-            TextField("言語コード", text: $model.settings.language)
-                .help("ja / en など。将来的な多言語化のため設定で持つ")
+            // 以前は自由入力だった。打ち間違えても保存でき、
+            // 認識が始まってから初めておかしいと気づく形になっていた。
+            Picker("音声の言語", selection: $model.settings.language) {
+                Text("日本語").tag("ja")
+                Text("英語").tag("en")
+                Text("自動判定").tag("auto")
+            }
+            Text("自動判定は、話者が言語を切り替える収録で外しやすい。分かっているなら指定する方が安定する。")
+                .font(.caption).foregroundStyle(.secondary)
 
             Toggle("取りこぼし疑い区間を自動で再認識する", isOn: $model.settings.autoRepair)
 
             VStack(alignment: .leading) {
                 HStack {
-                    Text("無音とみなす音圧")
+                    Text("無音とみなす音の小ささ")
                     Spacer()
-                    Text("\(Int(model.settings.silenceDBFS)) dBFS")
-                        .font(.system(.caption, design: .monospaced))
+                    Text(silenceLabel).font(.caption)
+                    Text("(\(Int(model.settings.silenceDBFS)) dBFS)")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
-                Slider(value: $model.settings.silenceDBFS, in: -70...(-25), step: 1)
-                Text("この値を超える音が区間内に無ければ、認識結果があっても本文を破棄する。幻聴対策の主軸なので、上げるほど安全側・下げるほど取りこぼしにくい。")
+                Slider(value: $model.settings.silenceDBFS, in: -70...(-25), step: 1) {
+                    EmptyView()
+                } minimumValueLabel: {
+                    Text("静かでも拾う").font(.caption2).foregroundStyle(.secondary)
+                } maximumValueLabel: {
+                    Text("はっきりした声だけ").font(.caption2).foregroundStyle(.secondary)
+                }
+                Text("""
+                     これより小さい音しか無い区間は、認識結果が出ていても本文を捨てる。\
+                     無音に対して文章を出してしまう「幻聴」を止めるための主な仕組み。\
+                     右に寄せるほど幻聴は減るが、小声のやりとりを落としやすくなる。\
+                     既定（-45 dBFS 付近）から動かす必要はふつう無い。
+                     """)
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -87,18 +124,36 @@ struct SettingsView: View {
                         })) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(m.displayName)
-                            Text("\(m.note)・\(ModelCatalog.sizeText(m.approximateBytes))")
-                                .font(.caption).foregroundStyle(.secondary)
+                            Text(m.note).font(.caption).foregroundStyle(.secondary)
                             if ModelCatalog.isInstalled(m) {
-                                Text("導入済み").font(.caption2).foregroundStyle(.green)
+                                Label("導入済み", systemImage: "checkmark.circle.fill")
+                                    .font(.caption2).foregroundStyle(.green)
+                            } else {
+                                Label("入れると初回に \(ModelCatalog.sizeText(m.approximateBytes)) "
+                                      + "のダウンロードが走る",
+                                      systemImage: "arrow.down.circle")
+                                    .font(.caption2).foregroundStyle(.orange)
+                            }
+                            // 実測で分かった欠点は、選ぶ前に見えていないと意味がない。
+                            if let c = m.caveat {
+                                Label(c, systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption2).foregroundStyle(.orange)
                             }
                             if let a = m.attribution {
-                                Text(a).font(.caption2).foregroundStyle(.secondary)
+                                Text(a).font(.caption2).foregroundStyle(.tertiary)
                             }
                         }
                     }
                 }
-                Text("いずれも CPU 実行（静的 onnxruntime では CoreML が使えない）。")
+                if pendingCrossCheckBytes > 0 {
+                    Label("選択中で未導入の合計: \(ModelCatalog.sizeText(pendingCrossCheckBytes))",
+                          systemImage: "arrow.down.circle.fill")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+                Text("""
+                     いずれも CPU 実行（静的 onnxruntime では CoreML が使えない）。\
+                     照合を1つ足すと、収録時間ぶんの認識がもう一周走る。
+                     """)
                     .font(.caption).foregroundStyle(.secondary)
             }
 
