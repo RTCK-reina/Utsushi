@@ -150,13 +150,16 @@ final class AuditVisibilityTests: XCTestCase {
     func testMarkdownMarksSilentGap() {
         let t = audited([seg(0, 500, "前半のおわり"), seg(500, 540, "再開します")],
                         voiced: [(0, 100), (500, 540)], duration: 560)
-        XCTAssertTrue(Exporter().markdown(t).contains("発話なし"), "無音区間が本文に明示されていない")
+        XCTAssertTrue(Exporter().markdown(t).contains("> —— 発話なし "),
+                      "無音区間が本文に明示されていない")
     }
 
     func testMarkdownOmitsGapNoticeWhenContinuous() {
         let t = audited([seg(0, 60, "ずっと喋っている")], voiced: [(0, 60)], duration: 60)
         let md = Exporter().markdown(t)
-        XCTAssertFalse(md.contains("発話なし"))
+        // 「発話なし」という語だけで探すと、冒頭の「この文書の読み方」に凡例として
+        // 書いてある分に必ず当たる。本文に出る形（`> —— 発話なし `）で見る。
+        XCTAssertFalse(md.contains("> —— 発話なし "), "無音が無いのに区切りが出ている")
         XCTAssertFalse(md.contains("検証記録タブ"), "破棄が無いのに案内が出ている")
     }
 }

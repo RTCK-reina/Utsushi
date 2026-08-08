@@ -62,6 +62,30 @@ public struct Exporter: Sendable {
         out.append("| 作成 | \(Self.stamp(t.meta.createdAt)) |")
         out.append("")
 
+        // この書き出しは人だけでなく LLM に渡されることを前提にしている。
+        // LLM は本文を確定した事実として読むので、**どこが確かでどこが怪しいかを
+        // 本文と同じ場所に書いておかないと、怪しい箇所を根拠に自信を持って間違える。**
+        // 検証記録を後ろの節に置くだけでは、読み手が突き合わせてくれる保証がない。
+        out.append("## この文書の読み方\n")
+        out.append("""
+                   > 音声認識の出力であり、**誤りが残っている前提で読むこと。**
+                   >
+                   > - `[00:00:00]` は発話の開始時刻。本文は認識結果そのままで、書き換えていない
+                   > - `⚠︎` が付いた行は、エンジンが自信を持てなかった箇所
+                   > - `—— 発話なし ——` は実際に音が無い区間。話が省略されているのではない
+                   > - `↳ 別エンジンの候補:` は複数のエンジンで結果が割れた箇所。\
+                   **そこに書かれている語は当てにならない**ので、断定の根拠にしない
+                   > - 「要約」の見出しだけはモデルが書いた文で、その下の引用は本文そのまま
+                   >
+                   > 既知の弱点:
+                   >
+                   > - **同音異義語と固有名詞を取り違える**（「期初」→「気象」のように、\
+                   文脈に合わない語が自信満々に出る）。意味が通らない語は誤認識を疑う
+                   > - **話者の区別をしていない。** 発言が誰のものかは書かれていないので、\
+                   複数人の会話でも1人の連続した発話に見える
+                   > - 数値・固有名詞・日付は、この文書だけを根拠に確定しない\n
+                   """)
+
         if !t.summary.isEmpty {
             out.append("## 要約\n")
             out.append("> 見出しはモデルが書き、本文は文字起こしからの引用そのまま。")
@@ -98,7 +122,9 @@ public struct Exporter: Sendable {
                 out.append("\n## \(Self.hms(Double(c * 600))) – \(Self.hms(min(Double((c + 1) * 600), t.meta.sourceDuration)))\n")
             }
             let mark = seg.flags.contains(.lowConfidence) ? " ⚠︎" : ""
-            out.append("`[\(Self.hms(seg.start))]`\(mark) \(seg.text)\n")
+            out.append("`[\(Self.hms(seg.start))]`\(mark) \(seg.text)")
+            for line in Self.uncertaintyNotes(for: seg, in: t) { out.append(line) }
+            out.append("")
             previousEnd = seg.end
         }
         // 末尾の無音（収録の最後が無音で終わる場合）も出す
@@ -112,6 +138,10 @@ public struct Exporter: Sendable {
         }
 
         out.append("\n---\n")
+        out.append("""
+                   > ここから下は検証の記録で、話された内容ではない。\
+                   本文として引用しないこと。\n
+                   """)
         out.append("## 検証記録\n")
         out.append("| 種別 | 件数 |")
         out.append("|---|---|")
@@ -248,6 +278,76 @@ public struct Exporter: Sendable {
     }
 
     // MARK: -
+
+    /// そのセグメントの区間で、他エンジンと結果が割れた語を本文の直下に添える。
+    ///
+    /// **これを本文と同じ場所に置くことが目的。** 検証記録は文書の後ろにあり、
+    /// 読み手（特に LLM）が時刻で突き合わせてくれる保証がない。
+    /// 突き合わせが起きなければ、怪しい語が確定した事実として読まれる。
+    ///
+    /// 出す条件を絞ってあるのは、全部出すと本文が読めなくなるため:
+    /// - 中身の違いだけ（整列のずれ・語尾のゆれ・表記差は読み手の判断に影響しない）
+    /// - 両側に本文がある（片側が空は「取りこぼしたかもしれない」であって、
+    ///   代わりの語を示せないので、ここに書いても読み手にできることが無い）
+    /// - どちらかに漢字・カタカナ・英数字がある（内容語。ひらがなだけの差は語尾のゆれの残り）
+    static func uncertaintyNotes(for segment: Segment, in t: Transcript,
+                                 limit: Int = 6) -> [String] {
+        let related = t.crossCheck.disagreements.filter { d in
+            guard d.kind == .substantive,
+                  d.start < segment.end, d.end > segment.start,
+                  let reference = d.candidates.first?.text,
+                  d.candidates.allSatisfy({ !$0.text.isEmpty }),
+                  d.candidates.contains(where: { hasContentCharacter($0.text) })
+            else { return false }
+
+            // **その語が実際にこの行にあること。**
+            // 食い違いの時刻は10秒の窓なので、そのまま重なりで拾うと
+            // 隣の行にも同じ注記が付く。実際そうなり、
+            // 「コンピ」の注記が「コンピ」を含まない行にも出ていた。
+            guard segment.text.contains(reference) else { return false }
+
+            // 長さが釣り合っていること。
+            // 「、自己評価と上長評価をそれぞれ人事の方」→「まずで実際」のような
+            // 極端に不均衡な組は、語の取り違えではなく整列のずれの残り。
+            // 候補として読み手に見せると、節まるごとが別物かのように読める。
+            let lengths = d.candidates.map(\.text.count)
+            guard let shortest = lengths.min(), let longest = lengths.max(),
+                  longest <= 10, longest <= shortest * 2 else { return false }
+            return true
+        }
+        guard !related.isEmpty else { return [] }
+
+        // 同じ語の組み合わせは1回にまとめる。エンジンが3本あると同じ箇所が3回出る。
+        var seen = Set<String>()
+        var pairs: [String] = []
+        for d in related {
+            let texts = d.candidates.map(\.text)
+            guard let head = texts.first else { continue }
+            let others = texts.dropFirst().filter { $0 != head }
+            guard !others.isEmpty else { continue }
+            let phrase = "「\(head)」→「\(others.joined(separator: "」「"))」"
+            if seen.insert(phrase).inserted { pairs.append(phrase) }
+        }
+        guard !pairs.isEmpty else { return [] }
+
+        // 打ち切るときは打ち切ったと書く。黙って切ると「これで全部」と読まれる。
+        let shown = pairs.prefix(limit)
+        let rest = pairs.count - shown.count
+        let tail = rest > 0 ? "（ほか\(rest)件）" : ""
+        return ["> ↳ 別エンジンの候補: \(shown.joined(separator: " / "))\(tail)"]
+    }
+
+    /// 内容語らしい文字を含むか。ひらがなと約物だけの差は語尾のゆれの残りなので除く。
+    static func hasContentCharacter(_ s: String) -> Bool {
+        s.unicodeScalars.contains {
+            (0x4E00...0x9FFF).contains($0.value)         // 漢字
+                || (0x3400...0x4DBF).contains($0.value)
+                || (0x30A0...0x30FF).contains($0.value)  // カタカナ
+                || (0x0041...0x005A).contains($0.value)  // A-Z
+                || (0x0061...0x007A).contains($0.value)  // a-z
+                || (0x0030...0x0039).contains($0.value)  // 0-9
+        }
+    }
 
     static func label(_ k: AuditReport.Finding.Kind) -> String {
         switch k {
