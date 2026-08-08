@@ -180,6 +180,22 @@ final class ExportForLLMTests: XCTestCase {
                       "無音の意味が読み手に伝わらない")
     }
 
+    /// 全エンジンが同じ誤り方をした語も本文の直下に出る。
+    /// 照合では拾えないので、ここが無いと LLM は「気象の目標」を事実として読む。
+    func testContextFlagAppearsBelowTheLine() throws {
+        var t = transcript()
+        t.plausibility = [PlausibilityFlag(start: 0, surface: "気象", alternative: "期初")]
+        let md = try markdown(t)
+        let lines = md.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        guard let i = lines.firstIndex(where: { $0.contains("大体気象の目標") }) else {
+            return XCTFail("本文が書き出されていない")
+        }
+        XCTAssertTrue(lines[(i + 1)...].prefix(2).joined().contains("期初"),
+                      "文脈の指摘が本文のすぐ下に出ていない")
+        XCTAssertTrue(md.contains("本文は書き換えていない"),
+                      "本文が直っていると読まれる")
+    }
+
     /// 本文は書き換えない。この不変条件は LLM 向けでも変わらない
     /// ——「読みやすく直した文」を渡すと、直した箇所が事実として固定される。
     func testBodyTextIsStillVerbatim() throws {

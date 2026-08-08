@@ -75,6 +75,8 @@ public struct Exporter: Sendable {
                    > - `—— 発話なし ——` は実際に音が無い区間。話が省略されているのではない
                    > - `↳ 別エンジンの候補:` は複数のエンジンで結果が割れた箇所。\
                    **そこに書かれている語は当てにならない**ので、断定の根拠にしない
+                   > - `⚠︎ 文脈に合わない語:` は、日本語として意味が通らない語として\
+                   指摘された箇所。**本文は書き換えていない**ので、上の行はそのまま残っている
                    > - 「要約」の見出しだけはモデルが書いた文で、その下の引用は本文そのまま
                    >
                    > 既知の弱点:
@@ -123,6 +125,7 @@ public struct Exporter: Sendable {
             }
             let mark = seg.flags.contains(.lowConfidence) ? " ⚠︎" : ""
             out.append("`[\(Self.hms(seg.start))]`\(mark) \(seg.text)")
+            for line in Self.plausibilityNotes(for: seg, in: t) { out.append(line) }
             for line in Self.uncertaintyNotes(for: seg, in: t) { out.append(line) }
             out.append("")
             previousEnd = seg.end
@@ -152,6 +155,7 @@ public struct Exporter: Sendable {
         }
         out.append("| 本文を破棄した区間 | \(t.audit.stats.suppressedCount) |")
         out.append("| 再認識で差し替えた区間 | \(t.audit.stats.repairedCount) |")
+        out.append("| 文脈に合わない語 | \(t.plausibility.count) |")
         out.append("")
 
         // 破棄した本文そのものはここに出さない。
@@ -278,6 +282,22 @@ public struct Exporter: Sendable {
     }
 
     // MARK: -
+
+    /// 文脈に合わない語の指摘を本文の直下に添える。
+    ///
+    /// 照合（`↳ 別エンジンの候補`）はエンジン間の不一致しか見ないので、
+    /// **全エンジンが同じ間違え方をした箇所には無力**。そこを埋めるのがこれ。
+    /// 本文は書き換えていない。`PlausibilityGate` が「その語が本文に実在すること」を
+    /// 検証済みなので、ここに出る語は必ず上の行に含まれている。
+    static func plausibilityNotes(for segment: Segment, in t: Transcript) -> [String] {
+        let flags = t.plausibility.filter {
+            abs($0.start - segment.start) < 0.001 && segment.text.contains($0.surface)
+        }
+        guard !flags.isEmpty else { return [] }
+        let body = flags.map { "「\($0.surface)」→「\($0.alternative)」かもしれない" }
+            .joined(separator: " / ")
+        return ["> ⚠︎ 文脈に合わない語: \(body)"]
+    }
 
     /// そのセグメントの区間で、他エンジンと結果が割れた語を本文の直下に添える。
     ///

@@ -42,6 +42,10 @@ public struct SessionSettings: Sendable, Codable, Equatable {
     /// 読みが違う＝音響に情報が残っている箇所なので、テキストだけの判断は確度が落ちる。
     /// 切っておけば、その分は判定せず人に残る。
     public var judgeDifferentReadings: Bool = false
+    /// 文脈に合わない語をモデルに指摘させるか。
+    /// 照合が拾えない「全エンジンが同じ誤り方をした箇所」を埋める。
+    /// 本文は書き換えず、候補を横に並べるだけなので既定で有効。
+    public var enablePlausibilityCheck: Bool = true
     /// 要約を作る
     public var enableSummary: Bool = true
     /// 1塊の最大文字数（Foundation Models の文脈長に収める）
@@ -87,7 +91,9 @@ public struct SessionSettings: Sendable, Codable, Equatable {
     public func makeConfiguration(dictionary: UserDictionary,
                                   hasCorrector: Bool,
                                   hasJudge: Bool,
-                                  hasSummarizer: Bool = false) -> TranscriptionPipeline.Configuration {
+                                  hasSummarizer: Bool = false,
+                                  hasPlausibilityChecker: Bool = false)
+-> TranscriptionPipeline.Configuration {
         var c = TranscriptionPipeline.Configuration()
         c.language = language
         c.dictionary = dictionary
@@ -99,6 +105,7 @@ public struct SessionSettings: Sendable, Codable, Equatable {
         c.adjudicateDisagreements = adjudicateDisagreements && hasJudge
         c.judgeDifferentReadings = judgeDifferentReadings
         c.enableSummary = enableSummary && hasSummarizer
+        c.enablePlausibilityCheck = enablePlausibilityCheck && hasPlausibilityChecker
         c.summaryConfig.maxCharactersPerChunk = summaryChunkCharacters
         c.summaryConfig.maxPointsPerChunk = summaryPointsPerChunk
         c.summaryConfig.gatePolicy.rejectNewKanjiTerms = summaryStrictHeadlines

@@ -25,6 +25,10 @@ public actor TranscriptionPipeline {
         /// 要約を作る
         public var enableSummary: Bool = false
         public var summaryConfig: Summarizer.Configuration = .init()
+        /// 文脈に合わない語をモデルに指摘させるか。
+        /// 照合が拾えない「全エンジンが同じ誤り方をした箇所」を埋める。
+        /// 本文は書き換えず、候補を横に並べるだけ。
+        public var enablePlausibilityCheck: Bool = true
         public init() {}
     }
 
@@ -53,6 +57,7 @@ public actor TranscriptionPipeline {
     private let corrector: (any CorrectionEngine)?
     private let judge: (any DisagreementJudge)?
     private let summaryEngine: (any SummaryEngine)?
+    private let plausibilityChecker: (any PlausibilityChecker)?
     private let config: Configuration
     /// Cコールバックから同期的に読めるキャンセル状態。
     /// ポーリング Task を作ると、その Task がパイプラインとASRエンジンを保持し続け、
@@ -63,11 +68,13 @@ public actor TranscriptionPipeline {
                 corrector: (any CorrectionEngine)?,
                 judge: (any DisagreementJudge)? = nil,
                 summaryEngine: (any SummaryEngine)? = nil,
+                plausibilityChecker: (any PlausibilityChecker)? = nil,
                 config: Configuration = Configuration()) {
         self.engine = engine
         self.corrector = corrector
         self.judge = judge
         self.summaryEngine = summaryEngine
+        self.plausibilityChecker = plausibilityChecker
         self.config = config
     }
 
@@ -224,6 +231,23 @@ public actor TranscriptionPipeline {
             }
         }
 
+        // 9. 文脈に合わない語の指摘
+        //
+        // 照合はエンジン間の不一致しか見ないので、**全エンジンが同じ誤り方をした箇所**
+        // （「期初」→「気象」）を素通りする。音響からの多数決では原理的に拾えないため、
+        // 残っている手掛かりである文脈をモデルに見せる。
+        // モデルは本文を書き換えない。指摘した語が本文に無ければ機械的に捨てる。
+        var plausibility: [PlausibilityFlag] = []
+        if config.enablePlausibilityCheck, plausibilityChecker != nil {
+            if isCancelled() { throw ASRError.cancelled }
+            emit(.correcting, 0.99, "文脈の点検中")
+            let a = PlausibilityAuditor(checker: plausibilityChecker,
+                                        requireAgreement: config.requireAgreement)
+            let (flags, stat) = await a.run(on: audited.filter { !$0.isSuppressed })
+            plausibility = flags
+            self.lastPlausibilityOutcome = stat
+        }
+
         report.stats.segmentCount = audited.count
         let meta = TranscriptMeta(sourceURL: url, sourceDuration: audio.duration,
                                   engine: engine.displayName,
@@ -233,12 +257,14 @@ public actor TranscriptionPipeline {
         // カバー率は監査層が音声を見て出す。ここで尺の合計から上書きしない
         // （それをやっていたせいで、休憩を含む素材が 100% と報告されていた）。
         let transcript = Transcript(meta: meta, segments: audited, audit: report,
-                                    crossCheck: crossCheck, summary: summary)
+                                    crossCheck: crossCheck, summary: summary,
+                                    plausibility: plausibility)
         self.lastCorrectionOutcome = outcome
         return transcript
     }
 
     public private(set) var lastCorrectionOutcome = CorrectionOutcome()
+    public private(set) var lastPlausibilityOutcome = PlausibilityAuditor.Outcome()
 
     /// 再認識結果を元の並びに差し込む。
     /// 再認識側にも幻聴が乗るので、無音区間の本文はここでも捨てる。

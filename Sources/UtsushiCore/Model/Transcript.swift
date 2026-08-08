@@ -103,11 +103,27 @@ public struct Transcript: Sendable, Codable, Equatable {
     public var crossCheck: CrossCheckReport
     /// 要約。作らなかった場合は空。
     public var summary: Summary
+    /// 文脈に合わない語の指摘。**本文には反映していない。**
+    /// 照合が拾えない「全エンジンが同じ誤り方をした箇所」を埋めるためのもの。
+    public var plausibility: [PlausibilityFlag]
 
     public init(meta: TranscriptMeta, segments: [Segment], audit: AuditReport = .empty,
-                crossCheck: CrossCheckReport = .empty, summary: Summary = .empty) {
+                crossCheck: CrossCheckReport = .empty, summary: Summary = .empty,
+                plausibility: [PlausibilityFlag] = []) {
         self.meta = meta; self.segments = segments; self.audit = audit
         self.crossCheck = crossCheck; self.summary = summary
+        self.plausibility = plausibility
+    }
+
+    /// 古い JSON（`plausibility` が無いもの）を読めるようにしておく。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        meta = try c.decode(TranscriptMeta.self, forKey: .meta)
+        segments = try c.decode([Segment].self, forKey: .segments)
+        audit = try c.decode(AuditReport.self, forKey: .audit)
+        crossCheck = try c.decode(CrossCheckReport.self, forKey: .crossCheck)
+        summary = try c.decode(Summary.self, forKey: .summary)
+        plausibility = try c.decodeIfPresent([PlausibilityFlag].self, forKey: .plausibility) ?? []
     }
 
     /// 出力に載せるべきセグメント（破棄されたものを除く）

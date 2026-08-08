@@ -209,6 +209,25 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
+            Section("文脈に合わない語の指摘") {
+                Toggle("意味が通らない語をモデルに指摘させる", isOn: $model.settings.enablePlausibilityCheck)
+                Text("""
+                     照合は**エンジン間の食い違い**しか見られないので、\
+                     全エンジンが同じ間違え方をした箇所は素通りする。\
+                     実測でも「期初」が4エンジンすべてで「気象」になり、\
+                     「大体気象の目標を…」がそのまま出ていた。音響の多数決では原理的に拾えない。
+                     """)
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("""
+                     ここだけは文脈を手掛かりにする。ただし**本文は書き換えない**。\
+                     モデルが返せるのは「行番号」「その行にある語」「ありうる語」の3つだけで、\
+                     返した語が本文に無ければ機械的に捨てる。\
+                     通っても本文はそのままで、候補が横に並ぶだけ。\
+                     同じ指摘が2回出た場合のみ採る。
+                     """)
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("要約") {
                 Toggle("要約を作る", isOn: $model.settings.enableSummary)
                 Text("""

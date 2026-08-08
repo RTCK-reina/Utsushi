@@ -150,18 +150,22 @@ final class AppModel: ObservableObject {
         var corrector: (any CorrectionEngine)? = nil
         var judge: (any DisagreementJudge)? = nil
         var summarizer: (any SummaryEngine)? = nil
+        var plausibility: (any PlausibilityChecker)? = nil
         if #available(macOS 26.0, *), correctionAvailability.isAvailable {
             if settings.enableCorrection { corrector = FoundationModelsCorrector() }
             if settings.adjudicateDisagreements { judge = FoundationModelsJudge() }
             if settings.enableSummary { summarizer = FoundationModelsSummarizer() }
+            if settings.enablePlausibilityCheck { plausibility = FoundationModelsPlausibility() }
         }
 
         let config = settings.makeConfiguration(dictionary: dictionary,
                                                 hasCorrector: corrector != nil,
                                                 hasJudge: judge != nil,
-                                                hasSummarizer: summarizer != nil)
+                                                hasSummarizer: summarizer != nil,
+                                                hasPlausibilityChecker: plausibility != nil)
         let p = TranscriptionPipeline(engine: engine, corrector: corrector, judge: judge,
-                                      summaryEngine: summarizer, config: config)
+                                      summaryEngine: summarizer,
+                                      plausibilityChecker: plausibility, config: config)
         pipeline = p
 
         // AppModel は @MainActor なので、ここで作る Task は MainActor 隔離を引き継ぐ。
