@@ -189,24 +189,58 @@ final class EndToEndTests: XCTestCase {
         XCTAssertFalse(t.crossCheck.disagreements.isEmpty,
                        "系統の違うエンジン3つで食い違いが0件はありえない。整列が機能していない疑い")
 
-        // 表記の分類が**実データで実際に効いている**こと。
+        // 分類が**実データで実際に効いている**こと。
         // 単体テストが通るだけの機能を作って画面に繋がっていない、という失敗を
         // この構成で何度もやっているので、実データでの発火を必ず主張する。
-        // zipformer は「三月」、parakeet は「3月」と書くので、0件ならどこかで死んでいる。
-        let notation = t.crossCheck.disagreements.filter { $0.kind == .notation }
-        let substantive = t.crossCheck.disagreements.filter { $0.kind == .substantive }
-        print("""
-              　うち表記だけ: \(notation.count) / 中身の違い: \(substantive.count) \
-              （判定に投げなかった表記差: \(t.crossCheck.outcome.notationOnly)）
-              """)
-        XCTAssertFalse(notation.isEmpty,
-                       "表記だけの違いが1件も分類されていない。Notation が繋がっていない疑い")
-        XCTAssertEqual(notation.count, t.crossCheck.outcome.notationOnly,
-                       "分類した件数と、判定を飛ばした件数が合っていない")
-        for d in notation.prefix(5) {
-            print("  表記差: " + d.candidates.map { "\($0.engine.suffix(12))「\($0.text)」" }
-                .joined(separator: " / "))
+        func kind(_ k: TranscriptAlignment.Kind) -> [TranscriptAlignment.Disagreement] {
+            t.crossCheck.disagreements.filter { $0.kind == k }
         }
+        let substantive = kind(.substantive)
+        print("""
+              　中身 \(substantive.count) / 整列 \(kind(.alignment).count) \
+              / 語尾 \(kind(.inflection).count) / 表記 \(kind(.notation).count) \
+              （判定に投げなかった合計: \(t.crossCheck.outcome.skipped)）
+              """)
+        for k in [TranscriptAlignment.Kind.alignment, .inflection, .notation] {
+            XCTAssertFalse(kind(k).isEmpty,
+                           "\(k.rawValue) が実データで1件も分類されていない。繋がっていない疑い")
+            for d in kind(k).prefix(3) {
+                print("  \(k.rawValue): " + d.candidates.map { "\($0.engine.suffix(12))「\($0.text)」" }
+                    .joined(separator: " / "))
+            }
+        }
+        XCTAssertEqual(t.crossCheck.disagreements.count - substantive.count,
+                       t.crossCheck.outcome.skipped,
+                       "分類した件数と、判定を飛ばした件数が合っていない")
+
+        // **件数が減っただけで本物を捨てていないこと。**
+        // この素材で手で読んで見つかった数少ない実際の誤り。
+        // 分類を強めるたびにここが落ちるなら、それは改善ではなく取りこぼし。
+        for pair in [("立", "片"), ("陣", "人")] {
+            let found = substantive.contains { d in
+                let texts = Set(d.candidates.map(\.text))
+                return texts.contains(pair.0) && texts.contains(pair.1)
+            }
+            XCTAssertTrue(found,
+                          "「\(pair.0)」/「\(pair.1)」が中身の違いから消えた。"
+                          + "分類が本物まで畳んでいる")
+        }
+        // 後退の見張り。**達成目標ではない。**
+        //
+        // 分類を入れる前は282件で、整列・語尾・表記を分けて171件。
+        // ここに置いた200は「これ以上増えたら何かが壊れている」という線であって、
+        // 「171件なら人が読める」という意味ではない。11分で171件は依然として多すぎる。
+        //
+        // 減らし切れない理由は分類ではなく比較の単位にある。
+        // 10秒の窓で文字列を機械的に突き合わせているので、スパンが語の途中で切れる
+        // （「コンピ」「ログアウ」「Teamsはログアウ」）。断片には読みが定義できず、
+        // 片側が空になるものも増える。分類はその症状に名前を付けられるだけで、
+        // 原因は消せない。282→190→171と刻むたびに効きが落ちたのがその証拠。
+        //
+        // 直すなら、文（。？！と長い間）を単位に整列し直す必要がある。
+        // それは `TranscriptAlignment` の作り直しなので、ここでは踏み込んでいない。
+        XCTAssertLessThan(substantive.count, 200,
+                          "人に残る件数が分類前の水準に戻っている。分類が効いていない疑い")
         XCTAssertTrue(stages.contains("crossChecking"), "照合の段に入っていない")
         XCTAssertTrue(stages.contains("summarizing"), "要約の段に入っていない")
 

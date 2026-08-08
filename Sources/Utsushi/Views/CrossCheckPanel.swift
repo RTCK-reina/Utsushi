@@ -3,20 +3,20 @@ import SwiftUI
 /// 別エンジンとの食い違いと、その判定結果。
 struct CrossCheckPanel: View {
     let report: CrossCheckReport
-    /// 表記だけの違いを一覧に混ぜるか。
+    /// 中身の違い以外も一覧に混ぜるか。
     /// 既定では畳む。ただし件数は常に出し、開けば全部見られるようにしておく
-    /// ——「十分」と「10分」のように、表記をそろえると意味の差まで消える組み合わせが
-    /// あるので、見えなくしてはいけない。
-    @State private var showsNotationOnly = false
+    /// ——分類はどれも機械的な近似で外すことがあるので、見えなくしてはいけない。
+    @State private var showsAll = false
 
     private var substantive: [TranscriptAlignment.Disagreement] {
         report.disagreements.filter { $0.kind == .substantive }
     }
-    private var notationOnly: [TranscriptAlignment.Disagreement] {
-        report.disagreements.filter { $0.kind == .notation }
+    private func count(_ kind: TranscriptAlignment.Kind) -> Int {
+        report.disagreements.filter { $0.kind == kind }.count
     }
+    private var foldedCount: Int { report.disagreements.count - substantive.count }
     private var listed: [TranscriptAlignment.Disagreement] {
-        showsNotationOnly ? report.disagreements : substantive
+        showsAll ? report.disagreements : substantive
     }
 
     var body: some View {
@@ -42,13 +42,16 @@ struct CrossCheckPanel: View {
 
             let o = report.outcome
             VStack(alignment: .leading, spacing: 3) {
-                row("食い違い", "\(report.disagreements.count)")
-                row("　うち表記だけの違い（三月 / 3月）", "\(notationOnly.count)")
-                row("　うち中身の違い", "\(substantive.count)")
+                row("食い違い（全件）", "\(report.disagreements.count)")
+                row("　中身の違い", "\(substantive.count)")
+                row("　整列のずれ（本文は両方にある）", "\(count(.alignment))")
+                row("　語尾・助詞のゆれ（と / って）", "\(count(.inflection))")
+                row("　表記だけの違い（三月 / 3月）", "\(count(.notation))")
+                Divider().padding(.vertical, 2)
                 row("判定できた", "\(o.decided)")
                 row("　うち読みが一致（同音異義語）", "\(o.decidedWithMatchingReadings)")
                 row("　うち読みが不一致（音響情報を無視した推定）", "\(o.decidedWithDifferentReadings)")
-                row("人の目が要る", "\(max(0, o.undecided - o.notationOnly))")
+                row("人の目が要る", "\(max(0, o.undecided - o.skipped))")
                 row("2回の判定が割れた", "\(o.disagreedBetweenSamples)")
                 row("判定エラー", "\(o.errors)")
             }
@@ -60,6 +63,15 @@ struct CrossCheckPanel: View {
                       systemImage: "exclamationmark.triangle")
                     .font(.caption).foregroundStyle(.orange)
             }
+        }
+    }
+
+    static func kindLabel(_ kind: TranscriptAlignment.Kind) -> String? {
+        switch kind {
+        case .substantive: return nil
+        case .notation:    return "表記だけ"
+        case .alignment:   return "整列のずれ"
+        case .inflection:  return "語尾のゆれ"
         }
     }
 
@@ -76,16 +88,15 @@ struct CrossCheckPanel: View {
             HStack {
                 Text("食い違い（\(listed.count)件）").font(.headline)
                 Spacer()
-                if !notationOnly.isEmpty {
-                    Toggle("表記だけの違い \(notationOnly.count)件も表示",
-                           isOn: $showsNotationOnly)
+                if foldedCount > 0 {
+                    Toggle("整列・語尾・表記の違い \(foldedCount)件も表示", isOn: $showsAll)
                         .toggleStyle(.checkbox).font(.caption)
                 }
             }
             if report.disagreements.isEmpty {
                 Text("全エンジンの出力が一致しました。").font(.caption).foregroundStyle(.secondary)
             } else if listed.isEmpty {
-                Text("中身の違いはありません。残りは表記だけの違いです。")
+                Text("中身の違いはありません。残りは整列・語尾・表記の違いです。")
                     .font(.caption).foregroundStyle(.secondary)
             }
             ForEach(listed) { d in
@@ -99,13 +110,13 @@ struct CrossCheckPanel: View {
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background((d.readingsMatch ? Color.blue : Color.orange).opacity(0.15),
                                         in: Capsule())
-                        if d.kind == .notation {
-                            Text("表記だけ").font(.caption2)
+                        if let label = Self.kindLabel(d.kind) {
+                            Text(label).font(.caption2)
                                 .padding(.horizontal, 6).padding(.vertical, 2)
                                 .background(Color.secondary.opacity(0.15), in: Capsule())
                         }
                         Spacer()
-                        if d.kind == .notation {
+                        if !d.kind.needsHumanReview {
                             Label("判定対象外", systemImage: "minus.circle")
                                 .font(.caption2).foregroundStyle(.secondary)
                         } else if let v = verdict, v.chosenText != nil {

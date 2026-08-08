@@ -148,23 +148,33 @@ public struct Exporter: Sendable {
             let o = t.crossCheck.outcome
             out.append("| 項目 | 件数 |")
             out.append("|---|---|")
-            let notationIDs = Set(t.crossCheck.disagreements
-                .filter { $0.kind == .notation }.map(\.id))
-            out.append("| 食い違い | \(t.crossCheck.disagreements.count) |")
-            out.append("| 　うち表記だけの違い（三月 / 3月）| \(notationIDs.count) |")
+            func kindCount(_ k: TranscriptAlignment.Kind) -> Int {
+                t.crossCheck.disagreements.filter { $0.kind == k }.count
+            }
+            // 中身の違い以外の ID。一覧から外す対象。
+            let foldedIDs = Set(t.crossCheck.disagreements
+                .filter { !$0.kind.needsHumanReview }.map(\.id))
+            out.append("| 食い違い（全件）| \(t.crossCheck.disagreements.count) |")
+            out.append("| 　中身の違い | \(kindCount(.substantive)) |")
+            out.append("| 　整列のずれ（本文は両方にある）| \(kindCount(.alignment)) |")
+            out.append("| 　語尾・助詞のゆれ（と / って）| \(kindCount(.inflection)) |")
+            out.append("| 　表記だけの違い（三月 / 3月）| \(kindCount(.notation)) |")
             out.append("| 判定できた | \(o.decided) |")
             out.append("| 　うち読みが一致（同音異義語）| \(o.decidedWithMatchingReadings) |")
             out.append("| 　うち読みが不一致（音響情報を無視した推定）| \(o.decidedWithDifferentReadings) |")
-            out.append("| 人の目が要る | \(max(0, o.undecided - o.notationOnly)) |")
+            out.append("| 人の目が要る | \(max(0, o.undecided - o.skipped)) |")
             out.append("| 2回の判定が割れた | \(o.disagreedBetweenSamples) |")
             out.append("")
-            // 表記だけの違いは一覧から外す。認識の誤りではないものが並ぶと、
+            // 中身の違い以外は一覧から外す。認識の誤りではないものが並ぶと、
             // 本当に見るべき箇所が埋もれる。件数は上の表に残してある。
             let unresolved = t.crossCheck.adjudications
-                .filter { $0.chosenText == nil && !notationIDs.contains($0.disagreementID) }
+                .filter { $0.chosenText == nil && !foldedIDs.contains($0.disagreementID) }
             if !unresolved.isEmpty {
-                out.append("#### 判定できなかった食い違い（人の目で確認）\n")
-                for a in unresolved.prefix(50) {
+                // 以前は先頭50件で打ち切っていた。件数が多いと読めないから、という
+                // 理由だったが、**打ち切ったことが書き出しのどこにも出ていなかった**。
+                // 51件目以降が存在しないのと区別がつかない状態だったので、全件出す。
+                out.append("#### 判定できなかった食い違い（人の目で確認）— \(unresolved.count)件\n")
+                for a in unresolved {
                     let cands = a.candidates.map { "\($0.engine)「\($0.text)」" }.joined(separator: " / ")
                     out.append("- `\(Self.hms(a.start))` \(cands)")
                 }

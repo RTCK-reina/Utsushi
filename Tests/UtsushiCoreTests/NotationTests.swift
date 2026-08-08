@@ -77,6 +77,96 @@ final class NotationTests: XCTestCase {
         XCTAssertFalse(out.isEmpty, "「十分」と「10分」の食い違いが記録ごと消えている")
     }
 
+    // MARK: - 整列のずれ
+
+    /// 片側が空でも、本文が相手の隣接窓にあるなら認識の違いではない。
+    /// 実データではこれが人に残る件数の54%だった。
+    func testOffsetTextIsClassifiedAsAlignmentNotContent() {
+        // 同じことを言っているが、片方はセグメントの切り方の都合で後ろにずれている。
+        let a = TranscriptAlignment.Run(engine: "whisper", segments: [
+            seg(0, 10, "コンピテンシーに則って評価を行っていきます"),
+            seg(10, 20, "大体期初の目標を立てまして"),
+        ])
+        let b = TranscriptAlignment.Run(engine: "sherpa", segments: [
+            seg(0, 10, ""),
+            seg(10, 20, "コンピテンシーに則って評価を行っていきます大体期初の目標を立てまして"),
+        ])
+        let out = TranscriptAlignment.compare([a, b])
+        XCTAssertTrue(out.contains { $0.kind == .alignment },
+                      "置き場所の違いが中身の違いとして数えられている")
+    }
+
+    /// 本当に落ちている場合は残す。隣接窓にも無いなら、それは取りこぼし。
+    func testGenuinelyMissingTextStaysSubstantive() {
+        let a = TranscriptAlignment.Run(engine: "whisper",
+                                        segments: [seg(0, 10, "予算の承認をお願いします")])
+        let b = TranscriptAlignment.Run(engine: "sherpa",
+                                        segments: [seg(0, 10, "予算の")])
+        let out = TranscriptAlignment.compare([a, b])
+        XCTAssertTrue(out.contains { $0.kind == .substantive },
+                      "本当に落ちている本文まで整列のずれ扱いにしている")
+    }
+
+    // MARK: - 語尾のゆれ
+
+    /// 同じ組み合わせがくり返し出るなら、それはエンジンの癖。
+    func testRecurringParticleDifferenceBecomesInflection() {
+        let items = (0..<4).map { i in
+            TranscriptAlignment.Disagreement(
+                start: Double(i * 10), end: Double(i * 10 + 10),
+                candidates: [.init(engine: "a", text: "と"), .init(engine: "b", text: "って")],
+                readingsMatch: false, context: "")
+        }
+        let marked = TranscriptAlignment.markRecurringInflections(items)
+        XCTAssertTrue(marked.allSatisfy { $0.kind == .inflection },
+                      "くり返す語尾のゆれが人に残っている")
+    }
+
+    /// **漢字・カタカナ・英数字を含むものは、くり返しても畳まない。**
+    /// 誤認識された社名・人名はくり返し出るので、回数だけで畳むと
+    /// 一番拾いたいものを一番確実に隠すことになる。
+    func testRecurringProperNounErrorIsNeverFolded() {
+        let items = (0..<6).map { i in
+            TranscriptAlignment.Disagreement(
+                start: Double(i * 10), end: Double(i * 10 + 10),
+                candidates: [.init(engine: "a", text: "新小物"), .init(engine: "b", text: "BeeX")],
+                readingsMatch: false, context: "")
+        }
+        let marked = TranscriptAlignment.markRecurringInflections(items)
+        XCTAssertTrue(marked.allSatisfy { $0.kind == .substantive },
+                      "くり返す固有名詞の誤りを語尾のゆれとして隠している")
+    }
+
+    /// 1回しか出ない1文字差は畳まない。実データの本物2件がここに該当した。
+    func testOneOffSingleCharacterDifferenceStaysSubstantive() {
+        for (a, b) in [("立", "片"), ("陣", "人")] {
+            let items = [TranscriptAlignment.Disagreement(
+                start: 0, end: 10,
+                candidates: [.init(engine: "x", text: a), .init(engine: "y", text: b)],
+                readingsMatch: false, context: "")]
+            XCTAssertEqual(TranscriptAlignment.markRecurringInflections(items).first?.kind,
+                           .substantive,
+                           "「\(a)」/「\(b)」を畳んでいる。実データで拾えた数少ない本物")
+        }
+    }
+
+    // MARK: - 交ぜ書き
+
+    /// 読みが同じで片方だけ漢字なら送り仮名・交ぜ書きの違い。
+    func testKanaKanjiMixtureIsNotation() {
+        XCTAssertEqual(TranscriptAlignment.classify("いただ", "頂", readingsMatch: true,
+                                                    widenedA: "", widenedB: ""),
+                       .notation)
+    }
+
+    /// 同音異義語は残す。両方が漢字なので交ぜ書きではない。
+    func testHomophonesWithBothKanjiStaySubstantive() {
+        XCTAssertEqual(TranscriptAlignment.classify("機構", "気候", readingsMatch: true,
+                                                    widenedA: "", widenedB: ""),
+                       .substantive,
+                       "同音異義語の選択は音響で区別できない。人が見るべきもの")
+    }
+
     /// 判定は表記の違いをモデルに投げない。投げても答えようがなく、時間だけ食う。
     func testAdjudicatorSkipsNotationOnly() async {
         let d = TranscriptAlignment.Disagreement(

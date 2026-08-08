@@ -58,6 +58,13 @@ public struct AdjudicationOutcome: Sendable, Codable, Equatable {
     /// 表記だけの違い（「三月」と「3月」など）。判定にかけていない。
     /// `total` には含まれる。人に残す件数は `undecided - notationOnly` で見る。
     public var notationOnly: Int = 0
+    /// 片方の窓に寄っただけのもの。判定にかけていない。
+    public var alignmentOnly: Int = 0
+    /// 語尾・助詞のゆれ。判定にかけていない。
+    public var inflectionOnly: Int = 0
+
+    /// 判定にかけずに畳んだ合計。人に残る件数は `undecided - skipped`。
+    public var skipped: Int { notationOnly + alignmentOnly + inflectionOnly }
     public init() {}
 }
 
@@ -162,11 +169,20 @@ public struct Adjudicator: Sendable {
 
         for (i, d) in disagreements.enumerated() {
             progress?(i, disagreements.count)
-            // 表記だけの違いはモデルに投げない。
+            // 中身の違い以外はモデルに投げない。
             // 「三月」と「3月」のどちらが正しいかはモデルに聞く問題ではないし、
-            // 実データではこれが件数の大半を占めるので、投げると時間だけ食う。
-            if d.kind == .notation {
-                out.append(undecided(d)); stat.undecided += 1; stat.notationOnly += 1; continue
+            // 整列のずれや語尾のゆれも同じ。実データではこれらが件数の大半を占めるので、
+            // 投げると時間だけ食う。記録には `undecided` として残る。
+            if !d.kind.needsHumanReview {
+                out.append(undecided(d))
+                stat.undecided += 1
+                switch d.kind {
+                case .notation:    stat.notationOnly += 1
+                case .alignment:   stat.alignmentOnly += 1
+                case .inflection:  stat.inflectionOnly += 1
+                case .substantive: break
+                }
+                continue
             }
             guard let judge else {
                 out.append(undecided(d)); stat.undecided += 1; continue

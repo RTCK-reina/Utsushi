@@ -15,13 +15,28 @@ public enum TranscriptAlignment {
 
     /// 食い違いの種類。
     ///
-    /// `.notation` は「三月」と「3月」のように、表記だけが違うもの。
-    /// 認識の誤りではないので既定では人に見せないが、**捨てはしない**。
-    /// 表記をそろえると「十分」と「10分」のように意味の違いまで消える組み合わせが
-    /// 存在するので、後から見返せる形で残しておく必要がある。
+    /// `.substantive` 以外は既定で人に見せないが、**どれも捨てはしない**。
+    /// 分類はすべて機械的な近似で、外すことがある——たとえば表記をそろえると
+    /// 「十分」と「10分」のように意味の違いまで消える組み合わせが存在する。
+    /// なので件数は常に画面に出し、チェックひとつで全件たどれる状態を保つ。
+    /// 「見せない」であって「無かったことにする」ではない。
+    ///
+    /// 実データ（11分・4エンジン）で人に残っていた282件の内訳がこの分類の出発点:
+    /// 片側が空 54% / ひらがなだけの短い差 34% / 実際に見る価値があったもの 約5%。
     public enum Kind: String, Sendable, Codable, Equatable {
+        /// 中身が違う。人が見るべきもの。
         case substantive
+        /// 表記だけの違い。「三月」と「3月」、「いただ」と「頂」。
         case notation
+        /// 片方の窓に寄っただけで、本文は両方のエンジンにある。
+        /// 認識の違いではなく置き場所の違い。
+        case alignment
+        /// 語尾・助詞のゆれ。「と」と「って」、「を」と「は」。
+        /// ひらがなと約物だけで構成され、かつ収録全体でくり返し出るもの。
+        case inflection
+
+        /// 人に見せる対象か。
+        public var needsHumanReview: Bool { self == .substantive }
     }
 
     public struct Disagreement: Sendable, Codable, Equatable, Identifiable {
@@ -89,41 +104,137 @@ public enum TranscriptAlignment {
             guard normalized.contains(where: { !$0.isEmpty }) else { continue }
             guard Set(normalized).count > 1 else { continue }
 
+            // 窓を1つ分ずつ広げた本文。片側が空のスパンが「認識できていない」のか
+            // 「隣の窓に寄っただけ」なのかを、この範囲に本文があるかで区別する。
+            let widened = runs.map {
+                normalize(text(of: $0, from: windowStart - windowSeconds, to: windowEnd + windowSeconds))
+            }
+
             let reference = texts[0]
+            let referenceChars = Array(reference)
             for i in 1..<runs.count {
-                let spans = differingSpans(Array(reference), Array(texts[i]))
+                let otherChars = Array(texts[i])
+                let spans = differingSpans(referenceChars, otherChars)
                 for span in spans {
-                    let a = String(Array(reference)[span.a])
-                    let b = String(Array(texts[i])[span.b])
+                    let a = String(referenceChars[span.a])
+                    let b = String(otherChars[span.b])
+                    // 窓の切り口に接しているスパンか。
+                    let touchesEdge = span.a.lowerBound == 0 || span.b.lowerBound == 0
+                        || span.a.upperBound == referenceChars.count
+                        || span.b.upperBound == otherChars.count
                     let ta = a.trimmingCharacters(in: .whitespacesAndNewlines)
                     let tb = b.trimmingCharacters(in: .whitespacesAndNewlines)
                     if ta.isEmpty && tb.isEmpty { continue }
                     if max(ta.count, tb.count) < minSpanCharacters { continue }
                     if normalize(ta) == normalize(tb) { continue }  // 句読点だけの差は無視
 
-                    // 数値の書き方・全角半角だけの違いは `.notation` に落とす。
-                    // whisper は「3」、zipformer は「三」と書く。
-                    //
-                    // 実測では表記差は全体の一部で、差分の大半を占めるわけではなかった。
-                    // 表記差は中身の違いと分けて数える。長いセグメントは下の
-                    // `text(of:from:to:)` で窓ごとの文字範囲に分割済みなので、
-                    // 同じ本文が複数の窓へ丸ごと重複することはない。
-                    let kind: Kind = Notation.comparisonKey(ta) == Notation.comparisonKey(tb)
-                        ? .notation : .substantive
-
                     let cands = [Candidate(engine: runs[0].engine, text: ta),
                                  Candidate(engine: runs[i].engine, text: tb)]
                     let keys = Set(cands.map { Reading.key($0.text) })
+                    let readingsMatch = keys.count == 1 && !(keys.first?.isEmpty ?? true)
+
                     out.append(Disagreement(
                         start: windowStart, end: windowEnd,
                         candidates: cands,
-                        readingsMatch: keys.count == 1 && !(keys.first?.isEmpty ?? true),
+                        readingsMatch: readingsMatch,
                         context: contextAround(reference, span: span.a),
-                        kind: kind))
+                        kind: classify(ta, tb,
+                                       readingsMatch: readingsMatch,
+                                       widenedA: widened[0], widenedB: widened[i],
+                                       touchesWindowEdge: touchesEdge)))
                 }
             }
         }
-        return merge(out)
+        return markRecurringInflections(merge(out))
+    }
+
+    // MARK: - 分類
+
+    /// 1件のスパンを、窓の中の情報だけで分類する。
+    /// 収録全体を見ないと決まらない `.inflection` は
+    /// `markRecurringInflections` で後から上書きする。
+    static func classify(_ a: String, _ b: String,
+                         readingsMatch: Bool,
+                         widenedA: String, widenedB: String,
+                         touchesWindowEdge: Bool = false) -> Kind {
+        // 片側が空。相手の本文が自分の隣接窓にあるなら、認識できていないのではなく
+        // 置き場所が違うだけ。実データではこれが人に残る件数の54%を占めていた。
+        //
+        // 逆に隣接窓にも無ければ、そのエンジンは本当にその区間を落としている。
+        // それは見るべき食い違いなので `.substantive` のまま残す。
+        //
+        // 窓の端に接しているかを条件に入れているのは、10秒で機械的に切る以上、
+        // **どのエンジンも同じ文字位置では切れない**ため。境界では必ず語が割れ、
+        // 片方に1文字だけ残る（「行」「ン」）。これは認識の違いではなく切り口の違い。
+        // 端に接していない1文字は偶然の一致が起きうるので、2文字以上を要求する。
+        if a.isEmpty || b.isEmpty {
+            let present = a.isEmpty ? normalize(b) : normalize(a)
+            let elsewhere = a.isEmpty ? widenedA : widenedB
+            if !present.isEmpty,
+               present.count >= 2 || touchesWindowEdge,
+               elsewhere.contains(present) { return .alignment }
+        }
+
+        // 数値表記・全角半角
+        if Notation.comparisonKey(a) == Notation.comparisonKey(b) { return .notation }
+
+        // 送り仮名・交ぜ書き。「いただ」と「頂」。
+        // 読みが一致し、かつ**片方だけが漢字を含む**ものに限る。
+        // 両方が漢字なら同音異義語（機構／気候）なので、これは人が見るべきもの。
+        if readingsMatch, hasKanji(a) != hasKanji(b) { return .notation }
+
+        return .substantive
+    }
+
+    /// 収録全体で同じ組み合わせがくり返し出るものを `.inflection` に落とす。
+    ///
+    /// 1本の収録で「と」と「って」が6回出るのは、その6箇所で認識が割れているのではなく、
+    /// 片方のエンジンが常にそう書くということ。個別に人へ出す意味がない。
+    ///
+    /// ひらがなと約物だけに絞ってあるのは、固有名詞の誤りを巻き込まないため。
+    /// 誤認識された社名・人名はくり返し出るので、回数だけを条件にすると
+    /// **一番拾いたいものを一番確実に隠す**ことになる。日本語の内容語は
+    /// 漢字・カタカナ・英数字を含むので、そこで線を引く。
+    static func markRecurringInflections(_ items: [Disagreement],
+                                         minimumOccurrences: Int = 3) -> [Disagreement] {
+        var counts: [String: Int] = [:]
+        for d in items where d.kind == .substantive && isParticleLike(d) {
+            counts[pairKey(d), default: 0] += 1
+        }
+        guard counts.values.contains(where: { $0 >= minimumOccurrences }) else { return items }
+
+        return items.map { d in
+            guard d.kind == .substantive, isParticleLike(d),
+                  (counts[pairKey(d)] ?? 0) >= minimumOccurrences else { return d }
+            var copy = d
+            copy.kind = .inflection
+            return copy
+        }
+    }
+
+    private static func pairKey(_ d: Disagreement) -> String {
+        d.candidates.map { "\($0.engine)\u{1}\($0.text)" }.joined(separator: "\u{2}")
+    }
+
+    /// 全候補が「ひらがな・約物・空白」だけでできているか。
+    /// 内容語は漢字・カタカナ・英数字を含むので、ここに入らない。
+    static func isParticleLike(_ d: Disagreement) -> Bool {
+        d.candidates.allSatisfy { c in
+            c.text.unicodeScalars.allSatisfy {
+                (0x3040...0x309F).contains($0.value)                    // ひらがな
+                    || CharacterSet.whitespacesAndNewlines.contains($0)
+                    || CharacterSet.punctuationCharacters.contains($0)
+                    || CharacterSet.symbols.contains($0)
+            }
+        }
+    }
+
+    static func hasKanji(_ s: String) -> Bool {
+        s.unicodeScalars.contains {
+            (0x4E00...0x9FFF).contains($0.value)
+                || (0x3400...0x4DBF).contains($0.value)
+                || (0xF900...0xFAFF).contains($0.value)
+        }
     }
 
     // MARK: -
