@@ -11,7 +11,7 @@ DUR="${3:-660}"
 
 if [ -z "$SRC" ]; then
   echo "usage: $0 <source-video> [start-sec] [duration-sec]"
-  echo "  例: $0 ~/Movies/2026-08-05\\ 09-57-32.mov 3420 660"
+  echo "  例: $0 ~/Movies/recording.mov 3420 660"
   exit 2
 fi
 command -v ffmpeg >/dev/null || { echo "ffmpeg が必要 (brew install ffmpeg)"; exit 1; }
