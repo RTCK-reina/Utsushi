@@ -4,6 +4,11 @@
 <dict>
   <key>CFBundleName</key><string>Utsushi</string>
   <key>CFBundleDisplayName</key><string>Utsushi</string>
+  <!-- これが無いと、**別の場所へコピーした途端に起動しなくなる。**
+       ビルドした場所では LaunchServices が実行ファイルを覚えているので動いてしまい、
+       DMG から取り出して初めて「実行ファイルが見つからない」と言われる。
+       配布物を実際に開くまで気づけない類の欠落なので、明示しておく。 -->
+  <key>CFBundleExecutable</key><string>Utsushi</string>
   <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>

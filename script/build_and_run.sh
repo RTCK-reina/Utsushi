@@ -63,7 +63,7 @@ case "$MODE" in
     echo "/Applications/$APP_NAME.app に入れた"
     ;;
   dist)
-    # 配布用の .zip を作る。
+    # 配布用の .dmg を作る。
     #
     # 注意: ad-hoc 署名なので、他の Mac に渡すと Gatekeeper に止められる。
     # 受け取る側は Finder で右クリック →「開く」か、
@@ -74,10 +74,40 @@ case "$MODE" in
     APP_BUNDLE="$ROOT/build/Release/$APP_NAME.app"
     quit_running; build
     VER=$(defaults read "$APP_BUNDLE/Contents/Info" CFBundleShortVersionString)
-    OUT="$ROOT/build/$APP_NAME-$VER-arm64.zip"
-    rm -f "$OUT"
-    ditto -c -k --keepParent "$APP_BUNDLE" "$OUT"
-    echo "できたもの: $OUT"
+    OUT="$ROOT/build/$APP_NAME-$VER-arm64.dmg"
+    STAGE="$ROOT/build/dmg-stage"
+
+    rm -rf "$STAGE" "$OUT"
+    mkdir -p "$STAGE"
+    cp -R "$APP_BUNDLE" "$STAGE/"
+    # ドラッグ＆ドロップで入れられるように /Applications への近道を置く
+    ln -s /Applications "$STAGE/Applications"
+    # 初回に読ませたい注意書き。Gatekeeper の回避手順が要るため。
+    cat > "$STAGE/はじめにお読みください.txt" <<'NOTE'
+Utsushi — ローカル完結の文字起こしアプリ（Apple Silicon / macOS 26 以降）
+
+導入
+  Utsushi.app を隣の Applications へドラッグする。
+
+初回起動
+  そのままダブルクリックすると「開発元を確認できないため開けません」と出る。
+  Finder で Utsushi.app を右クリック →「開く」→「開く」で起動できる。
+  （Apple Developer Program に加入していないため署名が ad-hoc になっている。
+   アプリが何かをしているわけではない）
+
+モデルについて
+  音声認識モデルは同梱していない。初回実行時に
+  ~/Library/Application Support/Utsushi/Models へダウンロードする。
+  どれだけ落ちるかは開始前に画面に出る。
+
+音声はこの Mac の外に出ない。
+https://github.com/RTCK-reina/Utsushi
+NOTE
+
+    hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" \
+      -ov -format UDZO -fs HFS+ "$OUT" >/dev/null
+    rm -rf "$STAGE"
+    echo "できたもの: $OUT ($(du -h "$OUT" | cut -f1))"
     echo "受け取る側は初回だけ右クリック →「開く」が要る（ad-hoc 署名のため）"
     ;;
   icon)
