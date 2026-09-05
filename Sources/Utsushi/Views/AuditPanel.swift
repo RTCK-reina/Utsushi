@@ -9,6 +9,7 @@ struct AuditPanel: View {
             VStack(alignment: .leading, spacing: 16) {
                 summary
                 if let o = model.correctionOutcome { correctionStats(o) }
+                plausibility
                 findings
                 discarded
             }
@@ -28,6 +29,45 @@ struct AuditPanel: View {
                 ("　無音の時間", Exporter.hms(transcript.audit.stats.silentSeconds)),
                 ("最大反復連続数", "\(transcript.audit.stats.maxRepetitionRun)"),
             ])
+        }
+    }
+
+    /// 文脈から浮いて見える語。**書き出しにしか出ていなかったので画面にも出す。**
+    ///
+    /// 出し方に注意が要る。この仕組みがやっているのは有無の判定ではなく順位付けで、
+    /// **誤りの無い区間でも1件は出る**（実測。「どれも問題ない」という逃げ道を
+    /// 与えても使わなかった）。「指摘された＝誤り」と読める見せ方にすると、
+    /// 正しい本文に疑いを持たせることになる。
+    @ViewBuilder
+    private var plausibility: some View {
+        let flags = transcript.plausibility
+        if !flags.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("文脈から浮いて見える語（\(flags.count)件）").font(.headline)
+                // 文字列を + で連結すると String になり、SwiftUI は Markdown を解釈しない
+                // （LocalizedStringKey にならない）。強調記法は使わずに1本の文字列で書く。
+                Text("区間ごとに最も文脈に合わない語を1つ選んでいる。誤りが無い区間でも1件は出るので、誤りの証拠ではなく確認の手掛かりとして見る。本文は書き換えていない。")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(flags) { f in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(Exporter.hms(f.start))
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 68, alignment: .leading)
+                        Text("「\(f.surface)」")
+                            .font(.caption).textSelection(.enabled)
+                        // 文言は PlausibilityFlag.alternativeNote が持つ（書き出しと同じもの）。
+                        if f.alternative != nil {
+                            Text(f.alternativeNote)
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text(f.alternativeNote)
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
         }
     }
 

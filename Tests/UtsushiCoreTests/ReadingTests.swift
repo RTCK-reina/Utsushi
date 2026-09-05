@@ -78,7 +78,7 @@ final class EditGateTests: XCTestCase {
     }
 
     func testLevenshtein() {
-        XCTAssertEqual(gate.levenshtein(Array("kitten"), Array("sitting")), 3)
-        XCTAssertEqual(gate.levenshtein(Array(""), Array("abc")), 3)
+        XCTAssertEqual(TextDistance.levenshtein(Array("kitten"), Array("sitting")), 3)
+        XCTAssertEqual(TextDistance.levenshtein(Array(""), Array("abc")), 3)
     }
 }

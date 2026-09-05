@@ -72,25 +72,42 @@ public struct HallucinationAuditor: Sendable {
         // 実測では「はい、では一旦休憩挟みます。」の end が8分先まで伸び、
         // その結果カバー率が 100% と誤報された。
         // 尺は密度異常の判定にもカバー率にも使うので、ここを最初に正す。
+        //
+        // 先頭側も同じことが起きる（無音の**向こう**のセグメントに無音の手前の start が付く）。
+        // 実機では実行のたびにこの形が出たり出なかったりして、認識内容は同じなのに
+        // カバー率が 73.5% と 95.1% の間で揺れた。両端を同じ計算で切る。
         for i in out.indices {
             let seg = out[i]
             guard seg.duration > policy.overrunMinDuration else { continue }
-            guard let lastVoiced = envelope.lastVoicedTime(from: seg.start, to: seg.end,
-                                                           threshold: policy.silenceDBFS) else {
+            guard let voiced = envelope.voicedSpan(from: seg.start, to: seg.end,
+                                                   threshold: policy.silenceDBFS) else {
                 // 区間全体が無音。尺は触らず、無音ゲートの判断に委ねる。
                 continue
             }
-            let trimmed = min(seg.end, max(lastVoiced + policy.overrunTailMargin,
-                                           seg.start + policy.overrunMinKeptDuration))
-            let removed = seg.end - trimmed
-            guard removed >= policy.overrunMinTrim else { continue }
-            out[i].end = trimmed
-            stats.overrunTrimmedCount += 1
-            stats.overrunTrimmedSeconds += removed
-            findings.append(.init(kind: .segmentOverrun, start: trimmed, end: seg.end,
-                                  detail: "発話の終わりから \(Self.seconds(removed)) 先まで尺が伸びていたため切り詰めた"
-                                          + "（この区間に音は無い）",
-                                  action: .repaired))
+            let trimmedEnd = min(seg.end, max(voiced.upperBound + policy.overrunTailMargin,
+                                              seg.start + policy.overrunMinKeptDuration))
+            let removedTail = seg.end - trimmedEnd
+            if removedTail >= policy.overrunMinTrim { out[i].end = trimmedEnd }
+
+            let trimmedStart = max(seg.start, min(voiced.lowerBound - policy.overrunTailMargin,
+                                                  out[i].end - policy.overrunMinKeptDuration))
+            let removedHead = trimmedStart - seg.start
+            if removedHead >= policy.overrunMinTrim { out[i].start = trimmedStart }
+
+            // これ未満しか削れないなら触らない（記録が無駄に増えるだけ）
+            let cuts: [(removed: Double, range: ClosedRange<Double>, where: String)] = [
+                (removedTail, trimmedEnd...seg.end, "発話の終わりから \(Self.seconds(removedTail)) 先まで"),
+                (removedHead, seg.start...trimmedStart, "発話の始まりより \(Self.seconds(removedHead)) 手前から"),
+            ].filter { $0.removed >= policy.overrunMinTrim }
+            guard !cuts.isEmpty else { continue }
+            stats.overrunTrimmedCount += 1   // セグメント数。両端を削っても1本は1本
+            for cut in cuts {
+                stats.overrunTrimmedSeconds += cut.removed
+                findings.append(.init(kind: .segmentOverrun,
+                                      start: cut.range.lowerBound, end: cut.range.upperBound,
+                                      detail: "\(cut.where)尺が伸びていたため切り詰めた（この区間に音は無い）",
+                                      action: .repaired))
+            }
         }
 
         // 1. 音圧を全区間に付ける

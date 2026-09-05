@@ -42,19 +42,17 @@ final class PlausibilityRealModelTests: XCTestCase {
             checker: FoundationModelsPlausibility()).run(on: segments)
 
         print("[plausibility] 提案\(stat.proposed) / 採用\(stat.accepted) / "
-              + "ゲート棄却\(stat.rejectedByGate) / 2回目に出ず\(stat.droppedForDisagreement) "
-              + "/ **エラー\(stat.errors)**")
+              + "ゲート棄却\(stat.rejectedByGate) / 候補だけ棄却\(stat.alternativesDropped) / "
+              + "2回目に出ず\(stat.droppedForDisagreement) / **エラー\(stat.errors)**")
         // **「モデルが動かなかった」と「動いて外した」は分ける。**
         // 両方とも結果は0件で同じ形になるので、区別しないと
         // 環境の問題を製品の問題として読んでしまう（実際に一度読み違えた）。
-        //
-        // `availability` が .available でも、実際の呼び出しは
-        // SensitiveContentAnalysisML の安全ガードレールが
-        // CriticalMemoryPressure で拒否することがある。事前チェックでは分からない。
         if stat.errors > 0 {
             throw XCTSkip("モデルが起動しなかったので判定できない: " + (stat.lastError ?? "理由不明"))
         }
-        for f in flags { print("  「\(f.surface)」→「\(f.alternative)」") }
+        for f in flags {
+            print("  「\(f.surface)」→" + (f.alternative.map { "「\($0)」" } ?? "（候補なし）"))
+        }
 
         // ゲートを通ったものは必ず本文に実在する。ここが崩れると
         // 存在しない語についての注意書きが本文の横に並ぶ。
@@ -63,16 +61,50 @@ final class PlausibilityRealModelTests: XCTestCase {
                           "本文に無い語が通った: 「\(f.surface)」")
         }
 
-        // 本命。どちらか一方でも拾えれば、照合では届かなかった領域に手が届いている。
+        // **本命は「語を拾えるか」であって「正しい語を言えるか」ではない。**
+        //
+        // 実測でモデルの能力は非対称だと分かっている:
+        // 「気象」は3回とも安定して指摘できるのに、代わりの語は
+        // 「境界」「気温」「目標」と毎回外し、読みを与えても正解に届かない。
+        // 候補まで要求すると、**このモデルでは原理的に通らないテスト**になる。
+        // 通らないテストを置いておくと、いつか期待値の方を緩めることになる。
         let caught = flags.contains { $0.surface.contains("気象") || $0.surface.contains("通関") }
         XCTAssertTrue(caught,
                       "全エンジン共通の誤りを1件も拾えていない。"
                       + "拾えた指摘: " + flags.map { "「\($0.surface)」" }.joined())
     }
 
-    /// 誤りの無い本文に対して指摘を作らないこと。
-    /// でっち上げるモデルなら、本文の横が常に騒がしくなって誰も読まなくなる。
-    func testDoesNotInventProblemsInCleanText() async throws {
+    /// **出た候補は必ず音が近い。** ゲートが実モデル相手に効いているかを見る。
+    /// 単体テストは作り物の入力しか通していないので、
+    /// 実際に返ってくる「目標」「気温」のような候補を止められるかはここでしか分からない。
+    func testSurvivingAlternativesAreAlwaysPhoneticallyClose() async throws {
+        try requireModel()
+        let segments = lines.enumerated().map {
+            Segment(start: Double($0.offset * 10), end: Double($0.offset * 10 + 10),
+                    original: $0.element)
+        }
+        let (flags, stat) = await PlausibilityAuditor(
+            checker: FoundationModelsPlausibility()).run(on: segments)
+        if stat.errors > 0 {
+            throw XCTSkip("モデルが起動しなかったので判定できない: " + (stat.lastError ?? "理由不明"))
+        }
+        let gate = PlausibilityGate()
+        for f in flags {
+            guard let alt = f.alternative else { continue }
+            XCTAssertEqual(gate.readingProximity(f.surface, alt), .close,
+                           "音の遠い候補が読み手に届いている: 「\(f.surface)」→「\(alt)」")
+        }
+    }
+
+    /// 誤りの無い本文でも指摘は出る。**それを消せるふりをしない。**
+    ///
+    /// 2段目は候補から必ず1つ選ぶ。「どれも問題ない」という逃げ道を与えても
+    /// 実測では使わず、誤りの無い本文でも別の語を選んだ。
+    /// つまりこの仕組みがやっているのは**有無の判定ではなく順位付け**である。
+    ///
+    /// ここで固定するのは「騒がしくならないこと」——塊あたり1件までに収まること。
+    /// 0件を期待値にすると、モデルの性質と食い違うので、いつか期待値の方を緩めることになる。
+    func testStaysQuietEnoughOnCleanText() async throws {
         try requireModel()
         let clean = ["本日はお集まりいただきありがとうございます。",
                      "議題は来年度の採用計画についてです。",
@@ -86,8 +118,9 @@ final class PlausibilityRealModelTests: XCTestCase {
         if stat.errors > 0 {
             throw XCTSkip("モデルが起動しなかったので判定できない: " + (stat.lastError ?? "理由不明"))
         }
-        print("[plausibility clean] " + flags.map { "「\($0.surface)」→「\($0.alternative)」" }
-            .joined(separator: " / "))
+        print("[plausibility clean] " + flags.map {
+            "「\($0.surface)」→" + ($0.alternative.map { a in "「\(a)」" } ?? "（候補なし）")
+        }.joined(separator: " / "))
         XCTAssertLessThanOrEqual(flags.count, 1,
                                  "誤りの無い本文に指摘を作りすぎている: "
                                  + flags.map { "「\($0.surface)」" }.joined())

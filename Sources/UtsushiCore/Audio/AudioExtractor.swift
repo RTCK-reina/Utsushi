@@ -119,12 +119,11 @@ public struct AudioEnvelope: Sendable {
     /// [start, end) の最大 dBFS。無音判定は「区間内のどこにも音が無い」で行うため max を使う。
     public func peakDBFS(from start: Double, to end: Double) -> Float {
         guard !values.isEmpty, end > start else { return -120 }
-        let i0 = max(0, Int(start / hop))
-        let i1 = min(values.count, Int(ceil(end / hop)))
-        guard i0 < i1 else {
-            return values[min(max(0, i0), values.count - 1)]
+        guard let r = frames(from: start, to: end) else {
+            // 1フレームに満たない区間。そのフレームの値を返す。
+            return values[min(max(0, Int(start / hop)), values.count - 1)]
         }
-        return values[i0..<i1].max() ?? -120
+        return values[r].max() ?? -120
     }
 
     /// 閾値を下回り続ける区間のうち、指定秒数以上のもの。
@@ -154,27 +153,43 @@ public struct AudioEnvelope: Sendable {
         return out
     }
 
-    /// [start, end) で最後に閾値を超えたフレームの終端時刻。全部無音なら nil。
-    /// whisper の VAD 時刻マッピングは、無音の手前のセグメントに
-    /// 無音の向こう側の end を与えることがある。それを切り詰めるために使う。
-    public func lastVoicedTime(from start: Double, to end: Double, threshold: Float) -> Double? {
+    /// [start, end) に対応するフレーム添字の範囲。始点は切り捨て、終点は切り上げ。
+    /// **この丸めが唯一の定義。** 4つのメソッドがそれぞれ同じ式を持っていた時期があり、
+    /// 片方だけ丸めを変えると先頭と末尾のトリムが違うフレーム格子に乗ってしまう。
+    private func frames(from start: Double, to end: Double) -> Range<Int>? {
         guard !values.isEmpty, end > start else { return nil }
         let i0 = max(0, Int(start / hop))
         let i1 = min(values.count, Int(ceil(end / hop)))
-        guard i0 < i1 else { return nil }
-        var last: Int? = nil
-        for i in i0..<i1 where values[i] > threshold { last = i }
-        guard let l = last else { return nil }
-        return Double(l + 1) * hop
+        return i0 < i1 ? i0..<i1 : nil
+    }
+
+    /// [start, end) の中で音がある区間。最初に閾値を超えたフレームの開始から、
+    /// 最後に閾値を超えたフレームの終端まで。全部無音なら nil。
+    ///
+    /// whisper の VAD 時刻マッピングは、無音の手前のセグメントに無音の向こう側の end を
+    /// 与えることも、無音の向こうのセグメントに無音の手前の start を与えることもある。
+    /// 両端を一度に取り、尺の切り詰めを1つの計算にする。
+    public func voicedSpan(from start: Double, to end: Double, threshold: Float) -> ClosedRange<Double>? {
+        guard let r = frames(from: start, to: end) else { return nil }
+        guard let first = r.first(where: { values[$0] > threshold }),
+              let last = r.last(where: { values[$0] > threshold }) else { return nil }
+        return (Double(first) * hop)...(Double(last + 1) * hop)
+    }
+
+    /// [start, end) で最後に閾値を超えたフレームの終端時刻。全部無音なら nil。
+    public func lastVoicedTime(from start: Double, to end: Double, threshold: Float) -> Double? {
+        voicedSpan(from: start, to: end, threshold: threshold)?.upperBound
+    }
+
+    /// [start, end) で最初に閾値を超えたフレームの開始時刻。全部無音なら nil。
+    public func firstVoicedTime(from start: Double, to end: Double, threshold: Float) -> Double? {
+        voicedSpan(from: start, to: end, threshold: threshold)?.lowerBound
     }
 
     /// [start, end) のうち閾値を超えた割合
     public func voicedRatio(from start: Double, to end: Double, threshold: Float) -> Double {
-        guard !values.isEmpty, end > start else { return 0 }
-        let i0 = max(0, Int(start / hop))
-        let i1 = min(values.count, Int(ceil(end / hop)))
-        guard i0 < i1 else { return 0 }
-        let slice = values[i0..<i1]
+        guard let r = frames(from: start, to: end) else { return 0 }
+        let slice = values[r]
         let voiced = slice.filter { $0 > threshold }.count
         return Double(voiced) / Double(slice.count)
     }

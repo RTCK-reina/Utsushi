@@ -43,6 +43,52 @@ final class SegmentOverrunTests: XCTestCase {
                       "黙って直している。記録に残っていない")
     }
 
+    /// **先頭側の無音も切り詰める。**
+    ///
+    /// 末尾だけ切り詰めていたので、セグメントが「長い無音 + 発話」の形になると
+    /// 尺が伸びたまま残った。実機では実行のたびにこの形が出たり出なかったりして、
+    /// **認識内容は同じ（1083文字 vs 1084文字）なのにカバー率が 73.5% と 95.1% の間で揺れた。**
+    /// タイムスタンプの揺れ自体は whisper/Metal 側の問題で消せないが、
+    /// 尺をここで正せば、揺れてもカバー率は正しい値に収束する。
+    func testStartInsideSilenceIsTrimmed() {
+        let env = envelope(voicedRanges: [(500, 660)], duration: 660)
+        let segs = [seg(0, 660, "再開します")]   // 先頭500秒が無音なのに start が0
+        let (out, report) = HallucinationAuditor().audit(
+            segments: segs, envelope: env, totalDuration: 660, engineExposesConfidence: true)
+
+        XCTAssertGreaterThan(out[0].start, 495, "先頭の無音が切り詰められていない")
+        XCTAssertLessThan(out[0].start, 501, "発話の始まりより先まで削ってはいけない")
+        XCTAssertTrue(report.findings.contains { $0.kind == .segmentOverrun },
+                      "黙って直している。記録に残っていない")
+    }
+
+    /// 先頭と末尾の両方に無音があるとき、両方削る。
+    func testSilenceOnBothSidesIsTrimmed() {
+        let env = envelope(voicedRanges: [(300, 360)], duration: 660)
+        let segs = [seg(0, 660, "真ん中だけ喋っている")]
+        let (out, report) = HallucinationAuditor().audit(
+            segments: segs, envelope: env, totalDuration: 660, engineExposesConfidence: true)
+        // 両端を削っても「切り詰めたセグメント数」は1。削った秒数は両端の合計。
+        XCTAssertEqual(report.stats.overrunTrimmedCount, 1, "1本のセグメントを2本と数えている")
+        XCTAssertEqual(report.findings.filter { $0.kind == .segmentOverrun }.count, 2,
+                       "先頭と末尾で記録が2件あるべき")
+        XCTAssertGreaterThan(report.stats.overrunTrimmedSeconds, 590)
+
+        XCTAssertGreaterThan(out[0].start, 295, "先頭の無音が残っている")
+        XCTAssertLessThan(out[0].end, 365, "末尾の無音が残っている")
+    }
+
+    /// 短いセグメントの先頭に少し無音があるのは正常。削らない。
+    /// ここを削ると、字幕の頭が発話に食い込む。
+    func testShortSegmentIsLeftAlone() {
+        let env = envelope(voicedRanges: [(1.0, 5.0)], duration: 660)
+        let segs = [seg(0.5, 5.5, "短い発話")]
+        let (out, _) = HallucinationAuditor().audit(
+            segments: segs, envelope: env, totalDuration: 660, engineExposesConfidence: true)
+
+        XCTAssertEqual(out[0].start, 0.5, accuracy: 0.001, "短いセグメントを削っている")
+    }
+
     /// カバー率は「発話のうち書き起こせた割合」であって「総尺のうち」ではない。
     ///
     /// 以前は非破棄セグメントの尺の合計 ÷ 総尺で出しており、無音をまたぐセグメントが
@@ -125,7 +171,7 @@ final class SegmentOverrunTests: XCTestCase {
             segments: segs, envelope: env, totalDuration: 660, engineExposesConfidence: true)
         for (before, after) in zip(segs, out) {
             XCTAssertLessThanOrEqual(after.end, before.end, "end が伸びている")
-            XCTAssertEqual(after.start, before.start, "start を動かしてはいけない")
+            XCTAssertGreaterThanOrEqual(after.start, before.start, "start が前に伸びている")
         }
     }
 

@@ -82,7 +82,7 @@ public struct EditGate: Sendable {
                 return .reject(.lengthOutOfRange)
             }
         }
-        if levenshtein(Array(o), Array(p)) > policy.maxEditDistance {
+        if TextDistance.levenshtein(Array(o), Array(p)) > policy.maxEditDistance {
             return .reject(.editDistanceTooLarge)
         }
         return .accept
@@ -91,22 +91,5 @@ public struct EditGate: Sendable {
     private func latinTokens(_ s: String) -> Set<String> {
         let parts = s.split(whereSeparator: { !($0.isLetter && $0.isASCII) && !($0.isNumber && $0.isASCII) })
         return Set(parts.map(String.init).filter { $0.count >= 2 })
-    }
-
-    /// 文字単位のレーベンシュタイン距離
-    public func levenshtein(_ a: [Character], _ b: [Character]) -> Int {
-        if a.isEmpty { return b.count }
-        if b.isEmpty { return a.count }
-        var prev = Array(0...b.count)
-        var cur = [Int](repeating: 0, count: b.count + 1)
-        for i in 1...a.count {
-            cur[0] = i
-            for j in 1...b.count {
-                let cost = a[i-1] == b[j-1] ? 0 : 1
-                cur[j] = min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + cost)
-            }
-            swap(&prev, &cur)
-        }
-        return prev[b.count]
     }
 }
