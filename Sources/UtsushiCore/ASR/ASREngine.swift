@@ -11,13 +11,20 @@ public struct ASRRequest: Sendable {
     /// 固有名詞・専門語の誤認識は「モデルがその語を知らない」ことが原因なので、
     /// エンジンを増やすより先にここで効かせる。
     public var vocabularyHint: String?
+    /// 直前の窓の認識結果を次の窓の prompt に持ち越すか。
+    ///
+    /// 既定は持ち越す（文脈が効いて精度が上がる）。ただし whisper は一度反復ループに入ると、
+    /// 持ち越した本文がそのまま次の窓の prompt になるので、音声の終わりまで抜けない
+    /// （実データで 44 分ぶん消えた）。ループ区間の読み直しでは切る。
+    public var carryContext: Bool
 
     public init(samples: [Float], language: String = "ja",
                 timeRange: ClosedRange<Double>? = nil, useVAD: Bool = true,
-                vocabularyHint: String? = nil) {
+                vocabularyHint: String? = nil, carryContext: Bool = true) {
         self.samples = samples; self.language = language
         self.timeRange = timeRange; self.useVAD = useVAD
         self.vocabularyHint = vocabularyHint
+        self.carryContext = carryContext
     }
 }
 

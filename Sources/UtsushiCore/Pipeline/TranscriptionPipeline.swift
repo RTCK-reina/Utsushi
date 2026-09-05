@@ -125,29 +125,47 @@ public actor TranscriptionPipeline {
         // 5. 自動修復（VADを切って疑わしい区間だけ読み直す）
         if config.autoRepair {
             let plan = auditor.repairPlan(from: report, totalDuration: audio.duration)
-            for (i, range) in plan.enumerated() {
+            for (i, target) in plan.enumerated() {
                 if isCancelled() { throw ASRError.cancelled }
+                let range = target.range
+                let isLoop = target.kind == .repetitionLoop
                 emit(.repairing(i + 1, plan.count), 0.74 + Double(i) / Double(max(plan.count, 1)) * 0.06,
-                     "取りこぼし疑い区間を再認識中 (\(i + 1)/\(plan.count))")
+                     (isLoop ? "反復ループの区間を読み直し中" : "取りこぼし疑い区間を再認識中")
+                     + " (\(i + 1)/\(plan.count))")
                 do {
+                    // 取りこぼしは VAD を切って拾い直す。反復ループは VAD はそのまま、
+                    // **文脈の持ち越しを切る**（持ち越すと同じループに戻る）。
+                    // 持ち越しはどちらの読み直しでも要らないので常に切る。
                     let redone = try await engine.transcribe(
                         ASRRequest(samples: audio.samples, language: config.language,
-                                   timeRange: range, useVAD: false, vocabularyHint: hint),
+                                   timeRange: range, useVAD: isLoop && engine.supportsVAD,
+                                   vocabularyHint: hint, carryContext: false),
                         progress: { _ in }, isCancelled: isCancelled)
                     let (replaced, changed) = Self.splice(into: audited, range: range,
                                                           with: redone, envelope: envelope,
                                                           policy: config.auditPolicy)
+                    // 記録の end は音声の尺を超えることがある（whisper のセグメント end が
+                    // 尺より先に出る）ので、区間に入っているかは start で見る。
                     for k in report.findings.indices
-                    where report.findings[k].action == .unresolved
-                        && report.findings[k].start >= range.lowerBound
-                        && report.findings[k].end <= range.upperBound {
-                        if changed {
-                            report.findings[k].action = .repaired
-                        } else {
-                            // 調べた結果なにも無かった、を「未解決」と同じ扱いにしない。
-                            // 未解決のまま残すと、確認済みの区間まで人の目を要求してしまう。
-                            report.findings[k].action = .marked
-                            report.findings[k].detail += "（VADなしで再認識したが、追加の発話は検出されなかった）"
+                    where report.findings[k].start >= range.lowerBound
+                        && report.findings[k].start <= range.upperBound {
+                        let f = report.findings[k]
+                        if f.kind == .repetitionLoop, f.action == .suppressed {
+                            if changed {
+                                report.findings[k].action = .repaired
+                                report.findings[k].detail += "（文脈の持ち越しを切って読み直し、本文を差し替えた）"
+                            } else {
+                                report.findings[k].detail += "（読み直したが本文は得られなかった）"
+                            }
+                        } else if f.action == .unresolved {
+                            if changed {
+                                report.findings[k].action = .repaired
+                            } else {
+                                // 調べた結果なにも無かった、を「未解決」と同じ扱いにしない。
+                                // 未解決のまま残すと、確認済みの区間まで人の目を要求してしまう。
+                                report.findings[k].action = .marked
+                                report.findings[k].detail += "（VADなしで再認識したが、追加の発話は検出されなかった）"
+                            }
                         }
                     }
                     if changed {
@@ -162,6 +180,11 @@ public actor TranscriptionPipeline {
                 }
             }
             audited.sort { $0.start < $1.start }
+            // 読み直しで本文が変わったので、カバー率も今の本文で出し直す。
+            if report.stats.repairedCount > 0 {
+                auditor.updateCoverage(&report.stats, segments: audited,
+                                       envelope: envelope, totalDuration: audio.duration)
+            }
         }
 
         // 6. 照合（別エンジンで読み直し、食い違いを取り出す）
