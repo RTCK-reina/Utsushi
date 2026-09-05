@@ -5,7 +5,7 @@ import FoundationModels
 @available(macOS 26.0, *)
 @Generable
 struct PlausibilityList {
-    @Guide(description: "文脈に合わない語。無ければ空。多くても6件。", .count(0...6))
+    @Guide(description: "前後の文脈と意味が合わない語。多くても4件。", .count(0...4))
     var items: [PlausibilityItem]
 }
 
@@ -18,8 +18,26 @@ struct PlausibilityItem {
     @Guide(description: "本文にそのまま書かれている、意味の通らない語。1〜8文字。本文から一字一句そのまま写す。")
     var surface: String
 
-    @Guide(description: "音が近く、文脈に合う語。1〜8文字。思いつかない場合はその語を挙げない。")
+    /// **ここが0件の直接の原因だった。**
+    /// 以前は「思いつかない場合はその語を挙げない」と書いていた。実モデルは
+    /// 正しい語をまず思いつけない（読みを与えても「気象」を「気象」と返す）ので、
+    /// この指示に忠実に従った結果、**語の指摘ごと出さなくなっていた。**
+    /// 当てられる方（どの語が浮いているか）まで巻き添えで消えていた。
+    @Guide(description: "その語の代わりに入るはずの語。音が近く、文脈に合うもの。1〜8文字。思いつかなければ空文字にする。空でも語の指摘は必ず残すこと。")
     var alternative: String
+}
+
+/// 2段目の受け皿。**番号しか返せない。**
+///
+/// 1段目は「必ず何か挙げる」性質があり、誤りの無い本文にも指摘を作る。
+/// 実測では5行に対して4件挙げ、当たりは1件だった。
+/// 一方、**候補を並べて1つ選ばせる問いには3回とも正解した。**
+/// この非対称を使って、挙がったものを1件に絞る。
+@available(macOS 26.0, *)
+@Generable
+struct PlausibilityPick {
+    @Guide(description: "最も意味が通らない語の番号。候補に付いている番号をそのまま使う。")
+    var number: Int
 }
 
 /// Apple Foundation Models に「日本語として意味が通らない語」を指摘させる。
@@ -33,40 +51,29 @@ struct PlausibilityItem {
 public final class FoundationModelsPlausibility: PlausibilityChecker, @unchecked Sendable {
     public let displayName = "Apple Foundation Models (on-device)"
 
+    /// **短く保つこと。長くすると当たらなくなる。** 実測で確認した:
+    ///
+    /// | instructions | alternative 要求 | 「気象」を拾えたか |
+    /// |---|---|---|
+    /// | 長い（手順・例2つ・厳守4項目）| あり | ×（評価/目標/提出）|
+    /// | 長い | なし | ×（評価/振り返り/提出）|
+    /// | **短い（下記）** | あり | **○**（2回とも）|
+    /// | **短い** | なし | **○**（2回とも）|
+    ///
+    /// 決めているのは instructions の長さで、返させる項目数ではなかった。
+    ///
+    /// 長い版には「異常→以上」「時事録→議事録」という例を置いていた。
+    /// どちらも**2文字熟語の1文字違い**なので、モデルがそのパターンに合う語を
+    /// 探すようになり、探索範囲がかえって狭まった。**例は足すほど良くならない。**
+    ///
+    /// なお、それ以前は例として「気象→期初」という**検証データそのもの**を
+    /// 書いていた。答えを教えた上で同じ入力を投げていたので、
+    /// 仮に通っても能力の証拠にならなかった。例を置くなら検証データと独立させる。
+    /// ここでは例を一切置かないのが最も成績が良かった。
     private let instructions = """
-    あなたは日本語の音声認識結果を校閲する。**同音・類音の取り違えを探すのが仕事。**
-
-    音声認識は音を文字にするだけなので、音は合っていても語の選択を外す。
-    前後の文脈と照らして意味が通らない語は、ほぼ確実にこの取り違えである。
-
-    手順: 1行ずつ「この語はこの話の流れで意味が通るか」と問う。通らなければ挙げる。
-
-    実例:
-
-    入力
-    2. 大体気象の目標を3月から4月ぐらいに立てまして、中期の振り返りを行いつつ、
-    4. 当社は結構一気通関で横のつながりも実際にあったりはするので、
-
-    出力
-    line 2, surface「気象」, alternative「期初」
-      → 目標を立てる話に天気の語は無関係。「きしょ（期初）」の取り違え
-    line 4, surface「一気通関」, alternative「一気通貫」
-      → 社内のつながりの話に通関業務は無関係。同音の取り違え
-
-    挙げるもの:
-    - 話の流れと無関係な語（業務の話に出てくる天気・通関・気候など）
-    - 音は近いが意味が通らない熟語
-
-    挙げないもの:
-    - 言い淀み・言い直し・助詞の抜け。話し言葉として正常
-    - 語尾や助詞のゆれ（「と」「って」）
-    - 表記の違い（「三月」「3月」）
-    - 意味が通っている語。**通っているなら挙げない**
-
-    厳守:
-    - surface は**本文から一字一句そのまま写す**。本文に無い語を書いてはならない
-    - surface も alternative も1〜8文字の語にする。文を書いてはならない
-    - alternative が思いつかない語は挙げない
+    日本語の音声認識結果から、前後の文脈と意味が合わない語だけを抜き出す。
+    抜き出すのは本文にそのまま書かれている語だけ。言い換えてはならない。
+    代わりに入るはずの語が思いつけば添える。思いつかなくても語は挙げる。
     """
 
     private let options: GenerationOptions
@@ -96,9 +103,25 @@ public final class FoundationModelsPlausibility: PlausibilityChecker, @unchecked
 
     public func check(numberedText: String, lineCount: Int) async throws -> [PlausibilityDraft] {
         guard lineCount > 0 else { return [] }
+        let drafts = try await propose(numberedText: numberedText)
+        // 1件以下なら絞る必要が無い。無駄な呼び出しをしない。
+        guard drafts.count > 1 else { return drafts }
+        guard let picked = try await pickMostSuspicious(drafts, numberedText: numberedText) else {
+            // 範囲外の番号が返ったときは絞らない。
+            // ここで全部捨てると「モデルが答えられなかった」が「指摘なし」に化ける。
+            return drafts
+        }
+        return [picked]
+    }
+
+    /// 1段目。文脈から浮いている語を挙げさせる。
+    private func propose(numberedText: String) async throws -> [PlausibilityDraft] {
+        // 「無ければ空で返してよい」とは書かない。
+        // 型（.count(0...4)）と instructions で既に0件を許してあり、
+        // プロンプトでも重ねて言うと、空が全ての条件を同時に満たす
+        // 最も安全な出力になる。実際にそうなって0件が続いていた。
         let prompt = """
-        次は音声認識の結果である。音が近い別の語に取り違えられている箇所を挙げよ。
-        無ければ空で返してよい。
+        次は音声認識の結果である。前後の文脈と意味が合わない語を挙げよ。
 
         \(numberedText)
         """
@@ -109,5 +132,33 @@ public final class FoundationModelsPlausibility: PlausibilityChecker, @unchecked
         return response.content.items.map {
             PlausibilityDraft(lineNumber: $0.line, surface: $0.surface, alternative: $0.alternative)
         }
+    }
+
+    /// 2段目。挙がった語から最も怪しい1つを選ばせる。
+    ///
+    /// **「どれも問題ない」という逃げ道は用意しない。** 実測で用意しても使わず、
+    /// 誤りの無い本文でも別の語を選んだ。使わない選択肢を置くと、
+    /// 「none が返らなかった＝誤りが存在する」と読める形になってしまう。
+    /// ここでやっているのは有無の判定ではなく**順位付け**だと、呼ぶ側が分かる形にしておく。
+    private func pickMostSuspicious(_ drafts: [PlausibilityDraft],
+                                    numberedText: String) async throws -> PlausibilityDraft? {
+        let choices = drafts.enumerated()
+            .map { "\($0.offset + 1). \($0.element.surface)" }
+            .joined(separator: "\n")
+        let session = LanguageModelSession(instructions: """
+        日本語の音声認識結果と、その中の語の候補が与えられる。
+        音声認識は音を文字にするだけなので、音は近いが意味の通らない語に化けることがある。
+        候補のうち、その文脈で最も意味が通らない語を1つだけ選ぶ。
+        """)
+        let r = try await session.respond(to: """
+        \(numberedText)
+
+        次のうち、文脈で最も意味が通らない語はどれか。番号で1つ選べ。
+        \(choices)
+        """, generating: PlausibilityPick.self, options: options)
+
+        let n = r.content.number
+        guard n >= 1, n <= drafts.count else { return nil }
+        return drafts[n - 1]
     }
 }

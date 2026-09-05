@@ -18,6 +18,20 @@ final class RealAudioIntegrationTests: XCTestCase {
             .deletingLastPathComponent()   // repo root
         return repo.appendingPathComponent("fixtures/testclip.m4a")
     }()
+    /// 本番サイズ素材。環境変数が最優先で、無ければ fixtures/ の既定パスを見る。
+    ///
+    /// **環境変数だけに頼ると、xcodegen を素材なしで再生成した瞬間に黙って skip される。**
+    /// 実際にそれが起きて、この検証は4コミット分走っていなかった。
+    /// skip は成功と同じ見た目になるので、既定パスを持たせて忘れても走るようにする。
+    private static let productionMedia: (url: URL, explicit: Bool) = {
+        if let p = ProcessInfo.processInfo.environment["UTSUSHI_PRODUCTION_MEDIA"], !p.isEmpty {
+            return (URL(fileURLWithPath: p), true)
+        }
+        let repo = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        return (repo.appendingPathComponent("fixtures/long-production.m4a"), false)
+    }()
+
     /// クリップ先頭は元動画の 3420 秒地点
     private static let clipOffset: Double = 3420
     /// 元動画で無音だった 3521–4023 秒 → クリップ相対
@@ -127,14 +141,20 @@ final class RealAudioIntegrationTests: XCTestCase {
     /// 任意の2時間超素材を使う本番サイズ検証。
     /// 大容量の実録画はリポジトリへ入れないため、明示した環境変数がある時だけ走らせる。
     func testProductionLengthRecordingHasNoTextInsideSilence() async throws {
-        guard let path = ProcessInfo.processInfo.environment["UTSUSHI_PRODUCTION_MEDIA"],
-              !path.isEmpty else {
-            throw XCTSkip("UTSUSHI_PRODUCTION_MEDIA が未指定（2時間超の実素材検証用）")
-        }
-        let url = URL(fileURLWithPath: path)
+        let (url, explicit) = Self.productionMedia
         guard FileManager.default.fileExists(atPath: url.path) else {
-            XCTFail("本番サイズ素材が存在しない: \(url.path)")
-            return
+            // **明示された素材が無いのは設定ミス。既定パスに無いのは未用意。**
+            // 前者を skip にすると、パスを間違えたまま「走ったつもり」になる。
+            if explicit {
+                XCTFail("UTSUSHI_PRODUCTION_MEDIA に指定された素材が存在しない: \(url.path)")
+                return
+            }
+            throw XCTSkip("""
+                本番サイズ素材が無い: \(url.path)
+                実録画が無ければ11分のフィクスチャを連結して作れる:
+                  for i in $(seq 1 11); do echo "file '$PWD/fixtures/testclip.m4a'"; done > /tmp/l.txt
+                  ffmpeg -f concat -safe 0 -i /tmp/l.txt -c copy fixtures/long-production.m4a
+                """)
         }
         guard ModelCatalog.isInstalled(ModelCatalog.whisperModels[0]) else {
             throw XCTSkip("whisperモデルが未導入")

@@ -75,8 +75,10 @@ public struct Exporter: Sendable {
                    > - `—— 発話なし ——` は実際に音が無い区間。話が省略されているのではない
                    > - `↳ 別エンジンの候補:` は複数のエンジンで結果が割れた箇所。\
                    **そこに書かれている語は当てにならない**ので、断定の根拠にしない
-                   > - `⚠︎ 文脈に合わない語:` は、日本語として意味が通らない語として\
-                   指摘された箇所。**本文は書き換えていない**ので、上の行はそのまま残っている
+                   > - `⚠︎ 文脈から浮いて見える語:` は、その区間で**最も文脈に合わないと\
+                   判定された語**。**本文は書き換えていない**ので、上の行はそのまま残っている。\
+                   ただし**これは有無の判定ではなく順位付けである**——誤りが無い区間でも\
+                   1件は出る。「指摘がある＝誤りがある」ではない
                    > - 「要約」の見出しだけはモデルが書いた文で、その下の引用は本文そのまま
                    >
                    > 既知の弱点:
@@ -155,7 +157,7 @@ public struct Exporter: Sendable {
         }
         out.append("| 本文を破棄した区間 | \(t.audit.stats.suppressedCount) |")
         out.append("| 再認識で差し替えた区間 | \(t.audit.stats.repairedCount) |")
-        out.append("| 文脈に合わない語 | \(t.plausibility.count) |")
+        out.append("| 文脈から浮いて見える語 | \(t.plausibility.count) |")
         out.append("")
 
         // 破棄した本文そのものはここに出さない。
@@ -294,9 +296,13 @@ public struct Exporter: Sendable {
             abs($0.start - segment.start) < 0.001 && segment.text.contains($0.surface)
         }
         guard !flags.isEmpty else { return [] }
-        let body = flags.map { "「\($0.surface)」→「\($0.alternative)」かもしれない" }
-            .joined(separator: " / ")
-        return ["> ⚠︎ 文脈に合わない語: \(body)"]
+        // 候補の有無で書き分ける。
+        // モデルは「どの語が浮いているか」は当てられるが「その語が本来何か」は
+        // 当てられない（実測）。読みの近さを通らなかった候補は捨ててあるので、
+        // ここで候補が無いものは「怪しいことは分かるが、正解は分からない」を意味する。
+        // **無い候補を埋めない。** 埋めると読み手はそれを正解として読む。
+        let body = flags.map { "「\($0.surface)」\($0.alternativeNote)" }.joined(separator: " / ")
+        return ["> ⚠︎ 文脈から浮いて見える語: \(body)"]
     }
 
     /// そのセグメントの区間で、他エンジンと結果が割れた語を本文の直下に添える。

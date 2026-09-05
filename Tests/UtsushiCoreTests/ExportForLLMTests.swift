@@ -196,6 +196,35 @@ final class ExportForLLMTests: XCTestCase {
                       "本文が直っていると読まれる")
     }
 
+    /// **候補が無いときに、無い候補を埋めない。**
+    ///
+    /// 実モデルで主に通るのはこちらの経路。モデルは「どの語が浮いているか」は当てるが
+    /// 「その語が本来何か」は当てられず、返してきた候補は読みの近さで落とされる。
+    /// ここで何か埋めると、読み手（特に LLM）はそれを正解として読む。
+    func testDoesNotInventAnAlternativeWhenThereIsNone() throws {
+        var t = transcript()
+        t.plausibility = [PlausibilityFlag(start: 0, surface: "気象", alternative: nil)]
+        let md = try markdown(t)
+        XCTAssertTrue(md.contains("「気象」"), "指摘そのものが出ていない")
+        XCTAssertTrue(md.contains("正しい語は不明"), "候補が無いことが読み手に伝わらない")
+        XCTAssertFalse(md.contains("「気象」→"), "無い候補が矢印付きで出ている")
+    }
+
+    /// **「指摘がある＝誤りがある」と読ませない。**
+    ///
+    /// この仕組みは有無の判定ではなく順位付けで、誤りの無い区間でも1件は出る
+    /// （実測。「どれも問題ない」という逃げ道を与えても使わなかった）。
+    /// 読み方の説明にそれが書かれていないと、正しい本文に疑いを持たせることになる。
+    func testExplainsThatAFlagIsNotProofOfAnError() throws {
+        var t = transcript()
+        t.plausibility = [PlausibilityFlag(start: 0, surface: "気象", alternative: nil)]
+        let md = try markdown(t)
+        XCTAssertTrue(md.contains("有無の判定ではなく順位付け"),
+                      "指摘の性質が説明されていない")
+        XCTAssertTrue(md.contains("誤りが無い区間でも"),
+                      "誤りが無くても出ることが書かれていない")
+    }
+
     /// 本文は書き換えない。この不変条件は LLM 向けでも変わらない
     /// ——「読みやすく直した文」を渡すと、直した箇所が事実として固定される。
     func testBodyTextIsStillVerbatim() throws {

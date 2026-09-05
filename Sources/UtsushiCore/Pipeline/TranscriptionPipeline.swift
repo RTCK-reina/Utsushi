@@ -243,7 +243,9 @@ public actor TranscriptionPipeline {
             emit(.correcting, 0.99, "文脈の点検中")
             let a = PlausibilityAuditor(checker: plausibilityChecker,
                                         requireAgreement: config.requireAgreement)
-            let (flags, stat) = await a.run(on: audited.filter { !$0.isSuppressed })
+            let (flags, stat) = await a.run(on: audited.filter { !$0.isSuppressed }) { done, total in
+                emit(.correcting, 0.99, "文脈の点検中 \(done)/\(total)")
+            }
             plausibility = flags
             self.lastPlausibilityOutcome = stat
         }
