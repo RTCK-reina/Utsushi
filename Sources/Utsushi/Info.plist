@@ -2,38 +2,48 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Utsushi</string>
-  <key>CFBundleDisplayName</key><string>Utsushi</string>
-  <!-- これが無いと、**別の場所へコピーした途端に起動しなくなる。**
-       ビルドした場所では LaunchServices が実行ファイルを覚えているので動いてしまい、
-       DMG から取り出して初めて「実行ファイルが見つからない」と言われる。
-       配布物を実際に開くまで気づけない類の欠落なので、明示しておく。 -->
-  <key>CFBundleExecutable</key><string>Utsushi</string>
-  <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.4.0</string>
-  <key>CFBundleVersion</key><string>4</string>
-  <key>CFBundleIconFile</key><string>AppIcon</string>
-  <key>CFBundleIconName</key><string>AppIcon</string>
-  <key>LSMinimumSystemVersion</key><string>26.0</string>
-  <key>NSHighResolutionCapable</key><true/>
-  <key>NSHumanReadableCopyright</key><string>© RTCK</string>
-  <key>NSSupportsAutomaticTermination</key><true/>
-  <!-- Finder から「このアプリケーションで開く」に出るようにする。
-       Viewer 止まりにしてあるのは、書き換えないため。 -->
-  <key>CFBundleDocumentTypes</key>
-  <array>
-    <dict>
-      <key>CFBundleTypeName</key><string>動画・音声</string>
-      <key>CFBundleTypeRole</key><string>Viewer</string>
-      <key>LSHandlerRank</key><string>Alternate</string>
-      <key>LSItemContentTypes</key>
-      <array>
-        <string>public.movie</string>
-        <string>public.audio</string>
-        <string>public.audiovisual-content</string>
-      </array>
-    </dict>
-  </array>
+	<key>CFBundleDisplayName</key>
+	<string>Utsushi</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>動画・音声</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.movie</string>
+				<string>public.audio</string>
+				<string>public.audiovisual-content</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleExecutable</key>
+	<string>Utsushi</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>Utsushi</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.4.1</string>
+	<key>CFBundleVersion</key>
+	<string>5</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© RTCK</string>
+	<key>NSSupportsAutomaticTermination</key>
+	<true/>
 </dict>
 </plist>

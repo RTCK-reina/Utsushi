@@ -23,6 +23,10 @@ public actor WhisperEngine: ASREngine {
         public var noSpeechThreshold: Float = 0.6
         public var entropyThreshold: Float = 2.4
         public var logprobThreshold: Float = -1.0
+        /// 直前の窓の認識結果をどれだけ次の窓の prompt に持ち越すか（トークン数）。
+        /// nil なら whisper.cpp の既定（16384）。**0 にすると持ち越さない。**
+        /// 反復ループの調査用に外から触れるようにしてある。
+        public var maxTextContext: Int32? = nil
         public init() {}
     }
 
@@ -69,6 +73,10 @@ public actor WhisperEngine: ASREngine {
             var cparams = whisper_context_default_params()
             cparams.use_gpu = true
             cparams.flash_attn = true
+            // 状態は whisper_context に持たせたまま使う（`_no_state` + 認識ごとの whisper_init_state は使わない）。
+            // whisper.cpp v1.9.1 の VAD 経路は渡した state ではなく `ctx->state->vad_segments` に書くので、
+            // `_no_state` で作ると null 経由の書き込みになる。実際に turbo の出力が
+            // 22セグメント/1083文字 → 105セグメント/1800文字に化けた。
             guard let c = whisper_init_from_file_with_params(modelPath, cparams) else {
                 throw ASRError.modelUnavailable("whisper_init_from_file_with_params が nil を返した")
             }
@@ -95,11 +103,41 @@ public actor WhisperEngine: ASREngine {
         params.no_speech_thold = options.noSpeechThreshold
         params.entropy_thold = options.entropyThreshold
         params.logprob_thold = options.logprobThreshold
-
-        if let range = request.timeRange {
-            params.offset_ms = Int32(range.lowerBound * 1000)
-            params.duration_ms = Int32((range.upperBound - range.lowerBound) * 1000)
+        if let ctx = options.maxTextContext { params.n_max_text_ctx = ctx }
+        // whisper.cpp v1.9.1 では `no_context` は開始時に履歴を消すだけで、
+        // 窓をまたぐ持ち越し（prompt_past1）は毎回組み直される。持ち越しを本当に切れるのは
+        // n_max_text_ctx だけ。ただし 0 にすると語彙ヒント（initial_prompt）まで消える。
+        // prompt の予算は「ヒント（prompt_past0）を先に取り、残りを持ち越し（prompt_past1）」なので、
+        // 予算をヒントのトークン数 + 1 にすると、ヒントだけ残して持ち越しが 0 になる。
+        if !request.carryContext {
+            if let hint = request.vocabularyHint, !hint.isEmpty {
+                params.n_max_text_ctx = max(1, whisper_token_count(ctx, hint)) + 1
+            } else {
+                params.n_max_text_ctx = 0
+            }
         }
+
+        // 部分認識は offset_ms / duration_ms ではなく、サンプルを自分で切り出して渡す。
+        //
+        // whisper.cpp は VAD を有効にすると、まず全体から発話部分だけを詰めた音声を作り、
+        // offset_ms はその**詰めた後の時間軸**に掛かる。元の時刻で区間を指定すると
+        // 別の場所を認識し、結果の時刻も元に戻らない（実データでループ区間の読み直しが
+        // 空振りした: カバー率が変わらなかった）。切り出してから渡せば VAD と区間を併用できる。
+        let sliceStart: Int
+        let samples: ArraySlice<Float>
+        let timeOffset: Double
+        if let range = request.timeRange {
+            let rate = AudioExtractor.sampleRate
+            sliceStart = min(request.samples.count, max(0, Int(range.lowerBound * rate)))
+            let sliceEnd = min(request.samples.count, max(sliceStart, Int(range.upperBound * rate)))
+            samples = request.samples[sliceStart..<sliceEnd]
+            timeOffset = Double(sliceStart) / rate
+        } else {
+            sliceStart = 0
+            samples = request.samples[...]
+            timeOffset = 0
+        }
+        guard !samples.isEmpty else { return [] }
 
         let box = CallbackBox(progress: progress, isCancelled: isCancelled)
         let boxPtr = Unmanaged.passUnretained(box).toOpaque()
@@ -121,12 +159,12 @@ public actor WhisperEngine: ASREngine {
             params.detect_language = false
 
             let run: () throws -> [Segment] = {
-                let rc = request.samples.withUnsafeBufferPointer { buf in
+                let rc = samples.withUnsafeBufferPointer { buf in
                     whisper_full(ctx, params, buf.baseAddress, Int32(buf.count))
                 }
                 if isCancelled() { throw ASRError.cancelled }
                 guard rc == 0 else { throw ASRError.engineFailed("whisper_full rc=\(rc)") }
-                return Self.collect(ctx: ctx)
+                return Self.collect(ctx: ctx, timeOffset: timeOffset)
             }
 
             let withVAD: () throws -> [Segment] = { [self] in
@@ -163,15 +201,15 @@ public actor WhisperEngine: ASREngine {
         return segments
     }
 
-    private static func collect(ctx: OpaquePointer) -> [Segment] {
+    private static func collect(ctx: OpaquePointer, timeOffset: Double) -> [Segment] {
         let n = whisper_full_n_segments(ctx)
         var out: [Segment] = []
         out.reserveCapacity(Int(n))
         for i in 0..<n {
             guard let cText = whisper_full_get_segment_text(ctx, i) else { continue }
             let text = String(cString: cText).trimmingCharacters(in: .whitespacesAndNewlines)
-            let t0 = Double(whisper_full_get_segment_t0(ctx, i)) / 100.0
-            let t1 = Double(whisper_full_get_segment_t1(ctx, i)) / 100.0
+            let t0 = Double(whisper_full_get_segment_t0(ctx, i)) / 100.0 + timeOffset
+            let t1 = Double(whisper_full_get_segment_t1(ctx, i)) / 100.0 + timeOffset
 
             // トークン確率の対数平均を尤度の代理指標にする
             let nTok = whisper_full_n_tokens(ctx, i)

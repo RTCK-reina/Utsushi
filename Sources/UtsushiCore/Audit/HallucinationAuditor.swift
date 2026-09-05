@@ -33,6 +33,10 @@ public struct HallucinationAuditor: Sendable {
         public var overrunMinTrim: Double = 2.0
         /// この秒数以上、閾値を下回り続けたら「発話が無い区間」として扱う
         public var silenceRunSeconds: Double = 20.0
+        /// 反復ループがこの秒数以上続いていたら、破棄するだけでなく読み直す。
+        /// 短いループ（「はい。」×3）は本文の損失が小さいので触らない。
+        /// 実データでは 44 分のループが破棄されたまま残り、利用者には「14分以降が無い」と見えた。
+        public var repetitionRepairMinSeconds: Double = 10.0
         public init() {}
     }
 
@@ -223,6 +227,18 @@ public struct HallucinationAuditor: Sendable {
                                   action: .unresolved))
         }
 
+        updateCoverage(&stats, segments: out, envelope: envelope, totalDuration: totalDuration)
+        return (out, AuditReport(findings: findings, stats: stats))
+    }
+
+    /// 音声を基準にしたカバー率を計算して stats に書く。
+    ///
+    /// `audit` の最後で一度呼ぶが、**再認識で本文が差し替わったあとにも呼び直す**こと。
+    /// 以前は監査時の値が残ったままで、44分ぶん読み直しても 58% と表示され続けた。
+    public func updateCoverage(_ stats: inout AuditReport.Stats,
+                               segments: [Segment],
+                               envelope: AudioEnvelope,
+                               totalDuration: Double) {
         // 音声側の無音・有声を先に出す。セグメントの尺ではなく音を基準にする。
         let silent = envelope.silentRanges(minimumSeconds: policy.silenceRunSeconds,
                                            threshold: policy.silenceDBFS,
@@ -236,7 +252,7 @@ public struct HallucinationAuditor: Sendable {
         // 有声時間のうち、破棄されていないセグメントが覆っている秒数。
         // セグメントは無音をまたぐことがあるので、またいだ分は数えない。
         var transcribed = 0.0
-        for seg in out where !seg.isSuppressed {
+        for seg in segments where !seg.isSuppressed {
             var overlapWithSilence = 0.0
             for r in silent {
                 let lo = max(seg.start, r.lowerBound), hi = min(seg.end, r.upperBound)
@@ -246,24 +262,43 @@ public struct HallucinationAuditor: Sendable {
         }
         stats.transcribedVoicedSeconds = min(transcribed, voicedSeconds)
         stats.coverageRatio = voicedSeconds > 0 ? stats.transcribedVoicedSeconds / voicedSeconds : 0
-        return (out, AuditReport(findings: findings, stats: stats))
     }
 
-    /// 再認識すべき区間。VADを切って読み直すことで、VADが潰した発話を拾い直す。
+    /// 読み直す区間とその理由。
+    public struct RepairTarget: Sendable, Equatable {
+        public var range: ClosedRange<Double>
+        public var kind: AuditReport.Finding.Kind
+    }
+
+    /// 再認識すべき区間。
+    ///
+    /// - 取りこぼし疑い・カバレッジの穴: VAD を切って読み直し、VAD が潰した発話を拾い直す
+    /// - 長い反復ループ: whisper が同じ句を繰り返し続けた区間。破棄するだけでは本文が消えるので、
+    ///   文脈の持ち越しを切って読み直す（持ち越したまま読み直すと同じループに戻る）
     public func repairPlan(from report: AuditReport, padding: Double = 3.0,
-                           totalDuration: Double) -> [ClosedRange<Double>] {
+                           totalDuration: Double) -> [RepairTarget] {
         let targets = report.findings.filter {
-            ($0.kind == .densityAnomaly || $0.kind == .coverageGap) && $0.action == .unresolved
+            switch $0.kind {
+            case .densityAnomaly, .coverageGap: return $0.action == .unresolved
+            case .repetitionLoop: return ($0.end - $0.start) >= policy.repetitionRepairMinSeconds
+            default: return false
+            }
         }
-        var ranges: [ClosedRange<Double>] = targets.map {
-            max(0, $0.start - padding)...min(totalDuration, $0.end + padding)
+        var ranges: [RepairTarget] = targets.map {
+            RepairTarget(range: max(0, $0.start - padding)...min(totalDuration, $0.end + padding),
+                         kind: $0.kind)
         }
-        ranges.sort { $0.lowerBound < $1.lowerBound }
-        // 重なる区間はまとめる
-        var merged: [ClosedRange<Double>] = []
+        ranges.sort { $0.range.lowerBound < $1.range.lowerBound }
+        // 重なる区間はまとめる。理由が混ざったら「反復ループ」を優先する
+        // （ループの読み直しは持ち越しを切る必要があり、そちらの方が制約が強い）。
+        var merged: [RepairTarget] = []
         for r in ranges {
-            if let last = merged.last, r.lowerBound <= last.upperBound {
-                merged[merged.count - 1] = last.lowerBound...max(last.upperBound, r.upperBound)
+            if let last = merged.last, r.range.lowerBound <= last.range.upperBound {
+                let kind: AuditReport.Finding.Kind =
+                    (last.kind == .repetitionLoop || r.kind == .repetitionLoop) ? .repetitionLoop : last.kind
+                merged[merged.count - 1] = RepairTarget(
+                    range: last.range.lowerBound...max(last.range.upperBound, r.range.upperBound),
+                    kind: kind)
             } else {
                 merged.append(r)
             }
