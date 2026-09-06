@@ -13,6 +13,35 @@ struct SettingsView: View {
         }
     }
 
+    /// 版と作者。書き出しにも同じ文字列が載るので、出力を見た人がどのビルドか辿れる。
+    private var aboutTab: some View {
+        Form {
+            Section {
+                LabeledContent("アプリ", value: AppInfo.name)
+                LabeledContent("バージョン", value: AppInfo.displayVersion)
+                LabeledContent("作者", value: AppInfo.author)
+                LabeledContent("著作権", value: "© 2026 \(AppInfo.author)")
+            }
+            Section("この版でできること") {
+                Text("""
+                     音声はこの Mac の外に出ない。認識・検証・校正・要約のすべてが端末内で動く。
+
+                     書き出しの冒頭にも同じ版表記が載る。検証記録の読み方は版で変わるため                      （0.4.1 より前は反復ループの区間を破棄するだけで読み直していない）、                     出力を後から見返すときはそこを確認する。
+                     """)
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("ライセンス") {
+                Text("本体は MIT。実行時に取得するモデルはそれぞれ別のライセンスに従う。")
+                    .font(.caption).foregroundStyle(.secondary)
+                Link("github.com/RTCK-reina/Utsushi",
+                     destination: URL(string: "https://github.com/RTCK-reina/Utsushi")!)
+                    .font(.caption)
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
     /// 選択済みでまだ手元に無いモデルの合計。押す前に総量が見えるようにする。
     private var pendingCrossCheckBytes: Int64 {
         ModelCatalog.crossCheckCandidates
@@ -26,6 +55,7 @@ struct SettingsView: View {
             crossCheckTab.tabItem { Label("照合", systemImage: "arrow.triangle.branch") }
             correctionTab.tabItem { Label("校正", systemImage: "text.badge.checkmark") }
             DictionaryEditor().tabItem { Label("辞書", systemImage: "character.book.closed") }
+            aboutTab.tabItem { Label("情報", systemImage: "info.circle") }
         }
         // 高さを固定していたせいで、校正タブの「要約」節がまるごと画面外に落ちていた。
         // 設定ウインドウはスクロールしないので、切れた分は一切たどり着けない
@@ -36,12 +66,15 @@ struct SettingsView: View {
 
     private var engineTab: some View {
         Form {
-            Picker("認識エンジン", selection: $model.settings.engineChoice) {
-                ForEach(AppModel.EngineChoice.allCases) { Text($0.displayName).tag($0) }
-            }
-            Text(model.settings.engineChoice.note).font(.caption).foregroundStyle(.secondary)
+            Text("""
+                 認識エンジンはここでは選ばない。**開始ボタンが決める。**
+                 「高速」は OS 内蔵エンジンで、取得も要らず 57分の録音を30秒で通す代わりに、\
+                 照合も校正もせず、固有名詞が崩れやすい（辞書による認識の誘導も効かない）。
+                 「標準」は下の whisper を使い、照合タブで選んだエンジンで読み直す。
+                 """)
+                .font(.caption).foregroundStyle(.secondary)
 
-            if model.settings.engineChoice == .whisper {
+            Section("「標準」で使うモデル") {
                 Picker("モデル", selection: $model.settings.whisperModelID) {
                     ForEach(ModelCatalog.whisperModels) { m in
                         Text("\(m.displayName)（\(ModelCatalog.sizeText(m.approximateBytes))）")

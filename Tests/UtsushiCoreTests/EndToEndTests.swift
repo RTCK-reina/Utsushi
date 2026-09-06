@@ -278,7 +278,6 @@ final class EndToEndTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url) }
 
         var s = SessionSettings()
-        s.engineChoice = .apple
         s.silenceDBFS = -52
         s.crossCheckModelIDs = [ModelCatalog.sherpaModels[0].id]
         s.enableSummary = false

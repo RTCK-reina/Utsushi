@@ -60,6 +60,14 @@ public struct Exporter: Sendable {
                    + "（発話 \(Self.hms(t.audit.stats.voicedSeconds))"
                    + " / 無音 \(Self.hms(t.audit.stats.silentSeconds))）|")
         out.append("| 作成 | \(Self.stamp(t.meta.createdAt)) |")
+        // どのビルドの出力かを本文と同じ場所に残す。検証記録の解釈が版で変わるため
+        // （例: 0.4.1 より前は反復ループの区間を破棄するだけで読み直していない）。
+        out.append("| 作成ツール | \(AppInfo.credit) |")
+        // どの押しかたで作ったかを本文と同じ場所に置く。
+        // 「高速」は照合も校正もしていないので、**その前提を知らずに読むと危ない**。
+        if let mode = t.meta.mode {
+            out.append("| 押しかた | \(mode.displayName)（\(mode.note)）|")
+        }
         out.append("")
 
         // この書き出しは人だけでなく LLM に渡されることを前提にしている。

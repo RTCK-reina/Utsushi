@@ -30,25 +30,31 @@ final class AppleCrossCheckTests: XCTestCase {
         XCTAssertTrue(ModelCatalog.isInstalled(ModelCatalog.appleModel))
     }
 
-    func testAppleJoinsCrossCheckWhenPrimaryIsWhisper() {
+    func testAppleJoinsCrossCheckInQualityMode() {
         var s = SessionSettings()
-        s.engineChoice = .whisper
         s.crossCheckModelIDs = [ModelCatalog.appleModel.id, ModelCatalog.sherpaModels[0].id]
-        let ids = s.crossCheckModels.map(\.id)
-        XCTAssertTrue(ids.contains(ModelCatalog.appleModel.id))
-        XCTAssertEqual(ids.count, 2)
+        let c = s.makeConfiguration(dictionary: .empty, hasCorrector: false, hasJudge: false,
+                                    mode: .quality)
+        XCTAssertEqual(Set(c.crossCheckEngines.map(\.id)),
+                       [ModelCatalog.appleModel.id, ModelCatalog.sherpaModels[0].id])
     }
 
-    /// 一次認識と同じエンジンを照合に使っても、同じ誤りが返るだけで食い違いが出ない。
-    /// 選ばれたままでも外す。**時間だけ倍かかって収穫が無い**のを防ぐ。
-    func testAppleIsDroppedFromCrossCheckWhenItIsAlsoThePrimaryEngine() {
+    /// 高速は「下書きを一気に見る」ための押しかた。照合も言語モデルも使わない。
+    /// **選ばれたままでも走らせない。**速さの意味が無くなるため。
+    func testFastModeSkipsCrossCheckAndLanguageModel() {
         var s = SessionSettings()
-        s.engineChoice = .apple
         s.crossCheckModelIDs = [ModelCatalog.appleModel.id, ModelCatalog.sherpaModels[0].id]
-        let ids = s.crossCheckModels.map(\.id)
-        XCTAssertFalse(ids.contains(ModelCatalog.appleModel.id),
-                       "一次認識と同じエンジンが照合にも入っている")
-        XCTAssertEqual(ids, [ModelCatalog.sherpaModels[0].id])
+        s.enableCorrection = true
+        s.enableSummary = true
+        let c = s.makeConfiguration(dictionary: .empty, hasCorrector: true, hasJudge: true,
+                                    hasSummarizer: true, mode: .fast)
+        XCTAssertTrue(c.crossCheckEngines.isEmpty, "高速なのに照合が走る")
+        XCTAssertFalse(c.useLanguageModel, "高速なのに言語モデルを使う")
+        XCTAssertFalse(c.enableSummary, "高速なのに要約が走る")
+        XCTAssertEqual(c.mode, .fast)
+        // 監査と辞書は落とさない。速い代わりに幻聴が残る書き出しは意味が無い。
+        XCTAssertTrue(c.enableCorrection, "決定論ルールと辞書まで止めている")
+        XCTAssertTrue(c.autoRepair, "取りこぼしの読み直しまで止めている")
     }
 
     /// 設定に残った ID が消えないこと。OS内蔵は候補に含まれるので落ちてはいけない。

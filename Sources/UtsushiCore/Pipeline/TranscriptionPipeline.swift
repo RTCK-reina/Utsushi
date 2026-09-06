@@ -6,6 +6,8 @@ public actor TranscriptionPipeline {
 
     public struct Configuration: Sendable {
         public var language: String = "ja"
+        /// どちらの押しかたで走っているか。書き出しに残す。
+        public var mode: RunMode = .quality
         public var auditPolicy: HallucinationAuditor.Policy = .init()
         public var gatePolicy: EditGate.Policy = .init()
         public var rules: DeterministicRules = .init()
@@ -294,7 +296,8 @@ public actor TranscriptionPipeline {
         let meta = TranscriptMeta(sourceURL: url, sourceDuration: audio.duration,
                                   engine: engine.displayName,
                                   modelName: engine.identifier,
-                                  language: config.language)
+                                  language: config.language,
+                                  mode: config.mode)
         emit(.done, 1.0, "完了")
         // カバー率は監査層が音声を見て出す。ここで尺の合計から上書きしない
         // （それをやっていたせいで、休憩を含む素材が 100% と報告されていた）。

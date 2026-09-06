@@ -6,7 +6,6 @@ import AVFoundation
 @MainActor
 final class AppModel: ObservableObject {
 
-    typealias EngineChoice = SessionSettings.EngineChoice
 
     // 入力
     @Published var sourceURL: URL?
@@ -14,6 +13,8 @@ final class AppModel: ObservableObject {
     @Published var progress: Double = 0
     @Published var statusMessage = "動画または音声ファイルをドロップ"
     @Published var errorMessage: String?
+    /// 今走っている（走った）押しかた。画面の表示に使う。
+    @Published var runMode: RunMode = .quality
 
     // 結果
     @Published var transcript: Transcript?
@@ -118,16 +119,19 @@ final class AppModel: ObservableObject {
 
     // MARK: - 実行
 
-    func start() {
+    /// 押しかたで構成が決まる。設定でエンジンを切り替える形はやめた。
+    /// 「今どちらで走っているか」が画面から消えないようにするため。
+    func start(mode: RunMode = .quality) {
         guard let url = sourceURL, !isRunning else { return }
         errorMessage = nil
         isRunning = true
         progress = 0
+        runMode = mode
         statusMessage = "準備中"
 
         let engine: any ASREngine
-        switch settings.engineChoice {
-        case .whisper:
+        switch mode {
+        case .quality:
             let model = settings.whisperModel
             // モデルが同じなら読み込み済みのエンジンを使い回す
             if let existing = whisperEngine, existing.modelIdentifier == model.id {
@@ -138,12 +142,14 @@ final class AppModel: ObservableObject {
                 whisperEngine = fresh
                 engine = fresh
             }
-        case .apple:
+        case .fast:
             if #available(macOS 26.0, *) {
                 let loc = settings.language == "ja" ? "ja-JP" : settings.language
                 engine = SpeechAnalyzerEngine(locale: Locale(identifier: loc))
             } else {
-                engine = WhisperEngine()
+                // OS内蔵エンジンが無い環境では速い方も whisper で走る。
+                // 黙って標準と同じ構成にはしない（LLM段は落としたまま）。
+                engine = WhisperEngine(model: settings.whisperModel)
             }
         }
 
@@ -151,7 +157,9 @@ final class AppModel: ObservableObject {
         var judge: (any DisagreementJudge)? = nil
         var summarizer: (any SummaryEngine)? = nil
         var plausibility: (any PlausibilityChecker)? = nil
-        if #available(macOS 26.0, *), correctionAvailability.isAvailable {
+        // 高速では LLM を一切用意しない。用意してから設定で落とすと、
+        // モデルの読み込みだけ走って時間を食う。
+        if mode == .quality, #available(macOS 26.0, *), correctionAvailability.isAvailable {
             if settings.enableCorrection { corrector = FoundationModelsCorrector() }
             if settings.adjudicateDisagreements { judge = FoundationModelsJudge() }
             if settings.enableSummary { summarizer = FoundationModelsSummarizer() }
@@ -162,7 +170,8 @@ final class AppModel: ObservableObject {
                                                 hasCorrector: corrector != nil,
                                                 hasJudge: judge != nil,
                                                 hasSummarizer: summarizer != nil,
-                                                hasPlausibilityChecker: plausibility != nil)
+                                                hasPlausibilityChecker: plausibility != nil,
+                                                mode: mode)
         let p = TranscriptionPipeline(engine: engine, corrector: corrector, judge: judge,
                                       summaryEngine: summarizer,
                                       plausibilityChecker: plausibility, config: config)

@@ -70,7 +70,6 @@ final class SessionSettingsTests: XCTestCase {
 
     func testRoundTripsThroughJSON() throws {
         var s = SessionSettings()
-        s.engineChoice = .apple
         s.silenceDBFS = -52
         s.crossCheckModelIDs = [ModelCatalog.sherpaModels[0].id]
         s.judgeDifferentReadings = false
