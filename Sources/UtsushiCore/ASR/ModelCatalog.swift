@@ -62,6 +62,7 @@ public struct ModelCatalog: Sendable {
         case sherpaNemoCTC      // FastConformer CTC
         case sherpaQwen3ASR     // LLMデコーダ型（生成型）
         case sherpaSenseVoice   // 非自己回帰（作文しない）
+        case appleSpeechAnalyzer // OS内蔵。ダウンロード不要
         case sileroVAD
     }
 
@@ -202,7 +203,29 @@ public struct ModelCatalog: Sendable {
         approximateBytes: 885_098,
         note: "無音区間の切り出しに使う")
 
+    /// OS内蔵の SpeechTranscriber。**ダウンロードするファイルが無いので `items` は空**。
+    /// 言語モデルの取得は `SpeechAnalyzerEngine.prepare` が OS の API 経由で行う。
+    ///
+    /// 照合の相手として置いている。実測（57分・作手小学校）では:
+    ///   - 30秒（115倍速）で完走。反復ループ 0%。whisper large-v3 の10倍速い
+    ///   - 本文の一致率は whisper 0.655 / sherpa平均 0.622 と、どちらにも偏らない
+    ///   - ただし固有名詞が崩れやすく（「頂上の手前」→「長女の手前」）、
+    ///     語彙ヒントに非対応なので辞書で補正できない。一次認識より照合に向く
+    public static let appleModel = Model(
+        id: "apple.speechanalyzer",
+        displayName: "Apple SpeechTranscriber (OS内蔵)",
+        engine: .appleSpeechAnalyzer,
+        items: [],
+        approximateBytes: 0,
+        note: "OS内蔵。取得不要で30秒（57分素材）。反復ループが出ない",
+        caveat: "固有名詞が崩れやすい。語彙ヒント（辞書）と尤度に非対応なので一次認識には向かない")
+
+    /// **ダウンロード定義を持つ**モデル。取得・容量計算・配布定義の検証はこれを使う。
+    /// OS内蔵の `appleModel` は含まない（落とすファイルが無いため）。
     public static var allModels: [Model] { whisperModels + sherpaModels + [vadModel] }
+
+    /// 照合に選べるエンジン。系統が違うものだけを並べる。
+    public static var crossCheckCandidates: [Model] { sherpaModels + [appleModel] }
 
     // MARK: - 配置
 
@@ -242,6 +265,9 @@ public struct ModelCatalog: Sendable {
     }
 
     public static func isInstalled(_ model: Model) -> Bool {
+        // OS内蔵エンジンは取得が要らない。言語モデルが未取得でも prepare が
+        // OS 経由で入れるので、ここでは常に「使える」と答える。
+        if model.engine == .appleSpeechAnalyzer { return true }
         guard !model.items.isEmpty else { return false }
         for item in model.items {
             let current = directory(for: model).appendingPathComponent(item.fileName)

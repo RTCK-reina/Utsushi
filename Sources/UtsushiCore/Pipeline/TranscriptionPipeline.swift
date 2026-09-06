@@ -12,8 +12,15 @@ public actor TranscriptionPipeline {
         public var dictionary: UserDictionary = .empty
         /// 取りこぼし疑い区間をVADなしで自動再認識する
         public var autoRepair: Bool = true
-        /// LLM校正を行う
+        /// 校正の段を走らせる。**決定論ルールと辞書の適用を含む。**
         public var enableCorrection: Bool = true
+        /// 校正の中で LLM を使うか。
+        ///
+        /// 切っても決定論ルール（フィラー除去など）と辞書は効く。以前はここが
+        /// `enableCorrection` と一緒くたで、**LLM を切ると辞書まで止まっていた**。
+        /// Apple Intelligence が無効な環境でも同じことが起きていて、
+        /// README の「無効でも検証層は全機能動く」と食い違っていた。
+        public var useLanguageModel: Bool = true
         /// LLM案は2回一致した場合のみ採用
         public var requireAgreement: Bool = true
         /// 照合に使う別エンジン。空なら照合しない。
@@ -196,12 +203,21 @@ public actor TranscriptionPipeline {
                 if isCancelled() { throw ASRError.cancelled }
                 emit(.crossChecking(model.displayName), 0.80, "\(model.displayName) で照合中")
                 do {
-                    let secondary = SherpaEngine(model: model)
+                    // 照合の相手は sherpa 系と OS 内蔵の2種類。
+                    // OS 内蔵は取得も解放も要らないので、生成だけ分ける。
+                    let secondary: any ASREngine
+                    if model.engine == .appleSpeechAnalyzer {
+                        guard #available(macOS 26.0, *) else { continue }
+                        let loc = config.language == "ja" ? "ja-JP" : config.language
+                        secondary = SpeechAnalyzerEngine(locale: Locale(identifier: loc))
+                    } else {
+                        secondary = SherpaEngine(model: model)
+                    }
                     try await secondary.prepare { msg, _ in emit(.crossChecking(model.displayName), 0.80, msg) }
                     let segs = try await secondary.transcribe(
                         ASRRequest(samples: audio.samples, language: config.language, useVAD: false),
                         progress: { _ in }, isCancelled: isCancelled)
-                    secondary.shutdown()
+                    (secondary as? SherpaEngine)?.shutdown()
                     runs.append(TranscriptAlignment.Run(engine: model.id, segments: segs))
                     crossCheck.engines.append(model.id)
                 } catch is CancellationError {
@@ -232,7 +248,8 @@ public actor TranscriptionPipeline {
         if config.enableCorrection {
             emit(.correcting, 0.82, "校正中")
             let gate = EditGate(policy: config.gatePolicy, dictionary: config.dictionary)
-            let c = Corrector(engine: corrector, gate: gate, rules: config.rules,
+            let c = Corrector(engine: config.useLanguageModel ? corrector : nil,
+                              gate: gate, rules: config.rules,
                               dictionary: config.dictionary, requireAgreement: config.requireAgreement)
             let (corrected, stat) = await c.run(on: audited) { done, total in
                 emit(.correcting, 0.82 + Double(done) / Double(max(total, 1)) * (correctionEnd - 0.82),

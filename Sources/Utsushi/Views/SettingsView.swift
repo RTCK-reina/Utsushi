@@ -15,7 +15,7 @@ struct SettingsView: View {
 
     /// 選択済みでまだ手元に無いモデルの合計。押す前に総量が見えるようにする。
     private var pendingCrossCheckBytes: Int64 {
-        ModelCatalog.sherpaModels
+        ModelCatalog.crossCheckCandidates
             .filter { model.settings.crossCheckModelIDs.contains($0.id) && !ModelCatalog.isInstalled($0) }
             .reduce(0) { $0 + $1.approximateBytes }
     }
@@ -115,7 +115,7 @@ struct SettingsView: View {
                      """)
                     .font(.caption).foregroundStyle(.secondary)
 
-                ForEach(ModelCatalog.sherpaModels) { m in
+                ForEach(ModelCatalog.crossCheckCandidates) { m in
                     Toggle(isOn: Binding(
                         get: { model.settings.crossCheckModelIDs.contains(m.id) },
                         set: { on in

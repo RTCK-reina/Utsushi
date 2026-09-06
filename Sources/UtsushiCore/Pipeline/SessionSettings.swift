@@ -28,6 +28,12 @@ public struct SessionSettings: Sendable, Codable, Equatable {
     public var engineChoice: EngineChoice = .whisper
     public var whisperModelID: String = ModelCatalog.whisperModels[0].id
     public var language: String = "ja"
+    /// LLM による校正を行うか。切っても決定論ルールと辞書は適用される。
+    ///
+    /// 実測（11分素材・22セグメント）: 提案22件に対し採用は1件（読点の挿入）で、
+    /// 処理時間は 13秒 → 47秒。棄却8件のうち7件は「読みが変わる書き換え」で、
+    /// EditGate が止めている。読み手が LLM なら一般語の誤変換は文脈で戻るので、
+    /// 切る判断も成り立つ。
     public var enableCorrection: Bool = true
     public var requireAgreement: Bool = true
     public var autoRepair: Bool = true
@@ -70,11 +76,14 @@ public struct SessionSettings: Sendable, Codable, Equatable {
         if !ModelCatalog.whisperModels.contains(where: { $0.id == whisperModelID }) {
             whisperModelID = ModelCatalog.whisperModels[0].id
         }
-        crossCheckModelIDs.formIntersection(Set(ModelCatalog.sherpaModels.map(\.id)))
+        crossCheckModelIDs.formIntersection(Set(ModelCatalog.crossCheckCandidates.map(\.id)))
     }
 
     public var crossCheckModels: [ModelCatalog.Model] {
-        ModelCatalog.sherpaModels.filter { crossCheckModelIDs.contains($0.id) }
+        ModelCatalog.crossCheckCandidates.filter { crossCheckModelIDs.contains($0.id) }
+            // 一次認識と同じエンジンを照合に使っても、同じ誤りが返るだけで
+            // 食い違いが出ない。選ばれていても外す。
+            .filter { !($0.engine == .appleSpeechAnalyzer && engineChoice == .apple) }
     }
 
     public var whisperModel: ModelCatalog.Model {
@@ -97,7 +106,10 @@ public struct SessionSettings: Sendable, Codable, Equatable {
         var c = TranscriptionPipeline.Configuration()
         c.language = language
         c.dictionary = dictionary
-        c.enableCorrection = enableCorrection && hasCorrector
+        // 決定論ルールと辞書は LLM の有無に関係なく効かせる。
+        // ここを LLM と同じ条件にしていたせいで、校正を切ると辞書まで止まっていた。
+        c.enableCorrection = true
+        c.useLanguageModel = enableCorrection && hasCorrector
         c.requireAgreement = requireAgreement
         c.autoRepair = autoRepair
         c.auditPolicy.silenceDBFS = Float(silenceDBFS)

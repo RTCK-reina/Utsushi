@@ -70,10 +70,13 @@ final class PipelineDumpTests: XCTestCase {
               ModelCatalog.isInstalled(model) else { XCTFail("モデル \(modelID) が使えない"); return }
 
         var config = TranscriptionPipeline.Configuration()
-        config.enableCorrection = false
+        // 既定は認識と監査だけ。UTSUSHI_PIPE_CORRECT=1 で LLM 校正を足して費用対効果を測る。
+        config.enableCorrection = env["UTSUSHI_PIPE_CORRECT"] == "1"
         config.enableSummary = false
         config.enablePlausibilityCheck = false
-        config.crossCheckEngines = []
+        // UTSUSHI_PIPE_CROSSCHECK にモデルIDをカンマ区切りで渡すと照合も走る。
+        let ccIDs = (env["UTSUSHI_PIPE_CROSSCHECK"] ?? "").split(separator: ",").map(String.init)
+        config.crossCheckEngines = ModelCatalog.crossCheckCandidates.filter { ccIDs.contains($0.id) }
         config.autoRepair = env["UTSUSHI_PIPE_REPAIR"] != "0"
 
         // UTSUSHI_PIPE_FRESH=1 なら実行ごとにエンジンを作り直す（アプリは使い回す）。
@@ -81,14 +84,18 @@ final class PipelineDumpTests: XCTestCase {
         var options = WhisperEngine.Options()
         if let c = env["UTSUSHI_PIPE_CTX"].flatMap({ Int32($0) }) { options.maxTextContext = c }
         var engine = WhisperEngine(model: model, options: options)
-        var pipeline = TranscriptionPipeline(engine: engine, corrector: nil, config: config)
+        let corrector: (any CorrectionEngine)? = {
+            guard config.enableCorrection, #available(macOS 26.0, *) else { return nil }
+            return FoundationModelsCorrector()
+        }()
+        var pipeline = TranscriptionPipeline(engine: engine, corrector: corrector, config: config)
         let runs = Int(env["UTSUSHI_PIPE_RUNS"] ?? "1") ?? 1
         var report = "fresh=\(fresh) ctx=\(options.maxTextContext.map { "\($0)" } ?? "既定")\n"
         for r in 1...runs {
             if fresh && r > 1 {
                 engine.shutdown()
                 engine = WhisperEngine(model: model, options: options)
-                pipeline = TranscriptionPipeline(engine: engine, corrector: nil, config: config)
+                pipeline = TranscriptionPipeline(engine: engine, corrector: corrector, config: config)
             }
             let t0 = Date()
             let t = try await pipeline.run(url: URL(fileURLWithPath: media)) { _ in }
@@ -99,6 +106,26 @@ final class PipelineDumpTests: XCTestCase {
             let visibleChars = perTen.values.reduce(0, +)
             let buckets = perTen.keys.sorted().map { "\($0 * 10)m:\(perTen[$0]!)" }.joined(separator: " ")
             report += "可視文字 \(visibleChars) / 10分ごと: \(buckets)\n"
+            if !config.crossCheckEngines.isEmpty {
+                let kinds = Dictionary(grouping: t.crossCheck.disagreements, by: { "\($0.kind)" })
+                    .mapValues(\.count)
+                report += "照合: エンジン \(t.crossCheck.engines.joined(separator: " / ")) "
+                    + "/ 食い違い \(t.crossCheck.disagreements.count) \(kinds)\n"
+                for d in t.crossCheck.disagreements.filter({ $0.kind == .substantive }).prefix(8) {
+                    report += String(format: "  %.0f秒 %@\n", d.start,
+                                     d.candidates.map { "\($0.engine)「\($0.text)」" }.joined(separator: " vs "))
+                }
+            }
+            let outcome = await pipeline.lastCorrectionOutcome
+            if config.enableCorrection {
+                report += "校正: 提案\(outcome.proposed) / 採用\(outcome.accepted) / 決定論\(outcome.deterministic) "
+                    + "/ 辞書\(outcome.dictionary) / 棄却\(outcome.rejected) / エラー\(outcome.engineErrors)\n"
+                for s in t.segments where s.correction != nil {
+                    let c = s.correction!
+                    report += String(format: "  [%@] %.0f秒 %@ → %@\n", "\(c.rule)", s.start,
+                                     String(c.before.prefix(50)), String(c.after.prefix(50)))
+                }
+            }
             report += """
             ==== run \(r): \(String(format: "%.0f", elapsed))秒 / セグメント \(t.segments.count) / 破棄 \(suppressed.count) \
             / カバー率 \(String(format: "%.1f", t.audit.stats.coverageRatio * 100))% \
