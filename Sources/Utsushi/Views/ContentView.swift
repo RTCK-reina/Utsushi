@@ -70,12 +70,12 @@ struct ContentView: View {
             Image(systemName: "waveform.badge.magnifyingglass")
                 .font(.system(size: 46)).foregroundStyle(.secondary)
             Text("動画・音声ファイルをここにドロップ").font(.title3)
-            Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式")
+            Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています")
                 .font(.caption).foregroundStyle(.secondary)
             // ドロップだけだと「ドロップ以外の道が無い」ように見える。
             Button("ファイルを選ぶ…") { model.presentOpenPanel() }
                 .controlSize(.large)
-            Text("音声はこの Mac の中だけで処理される。外部への送信は無い。")
+            Text("音声はこの Mac の中だけで処理されます。外部に送信されることはありません。")
                 .font(.caption2).foregroundStyle(.secondary)
             capabilityBadges
             Spacer()

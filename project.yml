@@ -1,6 +1,8 @@
 name: Utsushi
 options:
   bundleIdPrefix: app.rtck
+  # 既定は日本語。英語環境では英語で出す（Resources/Localizable.xcstrings）。
+  developmentLanguage: ja
   deploymentTarget:
     macOS: "26.0"
   createIntermediateGroups: true

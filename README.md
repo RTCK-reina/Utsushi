@@ -1,5 +1,7 @@
 # Utsushi
 
+**日本語** | [English](README.en.md)
+
 動画・音声をローカルだけで文字起こしする macOS アプリ。Python もサーバも使わない単体の `.app`。
 
 ## 何をするか
