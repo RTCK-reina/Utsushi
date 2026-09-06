@@ -85,8 +85,8 @@ public enum RunMode: String, Sendable, Codable, CaseIterable {
 
     public var displayName: String {
         switch self {
-        case .fast:    return "高速"
-        case .quality: return "標準"
+        case .fast:    return String(localized: "高速")
+        case .quality: return String(localized: "標準")
         }
     }
 
@@ -95,10 +95,9 @@ public enum RunMode: String, Sendable, Codable, CaseIterable {
     public var note: String {
         switch self {
         case .fast:
-            return "OS内蔵エンジンで下書きした。照合も校正もしていない。"
-                + "固有名詞と数字は崩れやすく、辞書による認識の誘導も効いていない"
+            return String(localized: "OS内蔵エンジンで下書きした。照合も校正もしていない。固有名詞と数字は崩れやすく、辞書による認識の誘導も効いていない")
         case .quality:
-            return "whisper で認識し、設定した照合を掛けた"
+            return String(localized: "whisper で認識し、設定した照合を掛けた")
         }
     }
 }

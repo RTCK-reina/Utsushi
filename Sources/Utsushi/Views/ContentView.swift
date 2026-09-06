@@ -29,8 +29,15 @@ struct ContentView: View {
     private var header: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(model.sourceURL?.lastPathComponent ?? "ファイル未選択")
-                    .font(.headline).lineLimit(1).truncationMode(.middle)
+                // ファイル名は訳さない。未選択の文言だけ翻訳対象にする。
+                Group {
+                    if let name = model.sourceURL?.lastPathComponent {
+                        Text(verbatim: name)
+                    } else {
+                        Text("ファイル未選択")
+                    }
+                }
+                .font(.headline).lineLimit(1).truncationMode(.middle)
                 Text(model.statusMessage).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -117,21 +124,21 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 badge("押しかた", model.runMode.displayName, model.runMode == .fast ? .orange : .blue)
                 if model.settings.crossCheckModelIDs.isEmpty {
-                    badge("照合", "なし", .secondary)
+                    badge("照合", String(localized: "なし"), .secondary)
                 } else {
-                    badge("照合", "\(model.settings.crossCheckModelIDs.count) エンジン", .blue)
+                    badge("照合", String(localized: "\(model.settings.crossCheckModelIDs.count) エンジン"), .blue)
                 }
                 switch model.correctionAvailability {
                 case .available:
-                    badge("校正LLM", "利用可能", .green)
+                    badge("校正LLM", String(localized: "利用可能"), .green)
                 case .unavailable(let reason):
                     badge("校正LLM", reason, .orange)
                 }
             }
             let pending = pendingDownload
             if pending.bytes > 0 {
-                Label("初回だけ \(ModelCatalog.sizeText(pending.bytes)) のダウンロードが入る"
-                      + "（モデル \(pending.count) 件）",
+                // 連結すると翻訳が引かれない。1つの文字列リテラルに保つこと。
+                Label("初回だけ \(ModelCatalog.sizeText(pending.bytes)) のダウンロードが入る（モデル \(pending.count) 件）",
                       systemImage: "arrow.down.circle")
                     .font(.caption).foregroundStyle(.orange)
             }
@@ -139,10 +146,13 @@ struct ContentView: View {
         .padding(.top, 6)
     }
 
-    private func badge(_ title: String, _ value: String, _ color: Color) -> some View {
+    /// `title` は翻訳対象のラベル、`value` は**すでに表示用に組み立て済み**の値。
+    /// `Text` に `String` を渡すと verbatim になり翻訳が引かれないので、
+    /// ラベルは `LocalizedStringKey` で受ける。値は呼び出し側で訳しておく。
+    private func badge(_ title: LocalizedStringKey, _ value: String, _ color: Color) -> some View {
         HStack(spacing: 4) {
             Text(title).font(.caption2).foregroundStyle(.secondary)
-            Text(value).font(.caption2.weight(.medium))
+            Text(verbatim: value).font(.caption2.weight(.medium))
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
         .background(color.opacity(0.12), in: Capsule())

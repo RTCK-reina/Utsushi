@@ -102,29 +102,29 @@ public actor TranscriptionPipeline {
         }
 
         // 1. 準備
-        emit(.preparing("開始"), 0, "準備中")
+        emit(.preparing(String(localized: "開始")), 0, String(localized: "準備中"))
         try await engine.prepare { msg, p in emit(.preparing(msg), p * 0.10, msg) }
         if isCancelled() { throw ASRError.cancelled }
 
         // 2. 音声抽出
-        emit(.extractingAudio, 0.10, "音声を抽出中")
+        emit(.extractingAudio, 0.10, String(localized: "音声を抽出中"))
         let audio = try await AudioExtractor().extract(url: url,
-            progress: { p in emit(.extractingAudio, 0.10 + p * 0.08, "音声を抽出中") },
+            progress: { p in emit(.extractingAudio, 0.10 + p * 0.08, String(localized: "音声を抽出中")) },
             isCancelled: isCancelled)
         let envelope = AudioEnvelope(values: audio.envelope, hop: audio.envelopeHopSeconds)
 
         // 3. 認識
-        emit(.transcribing, 0.18, "認識中")
+        emit(.transcribing, 0.18, String(localized: "認識中"))
         let hint = engine.supportsVocabularyHint ? config.dictionary.promptHint() : nil
         var segments = try await engine.transcribe(
             ASRRequest(samples: audio.samples, language: config.language,
                        useVAD: engine.supportsVAD, vocabularyHint: hint),
-            progress: { p in emit(.transcribing, 0.18 + p * 0.52, "認識中 \(Int(p * 100))%") },
+            progress: { p in emit(.transcribing, 0.18 + p * 0.52, String(localized: "認識中 \(Int(p * 100))%")) },
             isCancelled: isCancelled)
         segments.sort { $0.start < $1.start }
 
         // 4. 監査
-        emit(.auditing, 0.72, "検証中")
+        emit(.auditing, 0.72, String(localized: "検証中"))
         let auditor = HallucinationAuditor(policy: config.auditPolicy)
         var (audited, report) = auditor.audit(segments: segments,
                                               envelope: envelope,
@@ -139,7 +139,8 @@ public actor TranscriptionPipeline {
                 let range = target.range
                 let isLoop = target.kind == .repetitionLoop
                 emit(.repairing(i + 1, plan.count), 0.74 + Double(i) / Double(max(plan.count, 1)) * 0.06,
-                     (isLoop ? "反復ループの区間を読み直し中" : "取りこぼし疑い区間を再認識中")
+                     (isLoop ? String(localized: "反復ループの区間を読み直し中")
+                      : String(localized: "取りこぼし疑い区間を再認識中"))
                      + " (\(i + 1)/\(plan.count))")
                 do {
                     // 取りこぼしは VAD を切って拾い直す。反復ループは VAD はそのまま、
@@ -203,7 +204,7 @@ public actor TranscriptionPipeline {
             var runs = [TranscriptAlignment.Run(engine: engine.identifier, segments: audited)]
             for model in config.crossCheckEngines {
                 if isCancelled() { throw ASRError.cancelled }
-                emit(.crossChecking(model.displayName), 0.80, "\(model.displayName) で照合中")
+                emit(.crossChecking(model.displayName), 0.80, String(localized: "\(model.displayName) で照合中"))
                 do {
                     // 照合の相手は sherpa 系と OS 内蔵の2種類。
                     // OS 内蔵は取得も解放も要らないので、生成だけ分ける。
@@ -236,7 +237,7 @@ public actor TranscriptionPipeline {
                                         requireAgreement: config.requireAgreement,
                                         judgeDifferentReadings: config.judgeDifferentReadings)
                     let (adj, stat) = await a.run(on: crossCheck.disagreements) { done, total in
-                        emit(.adjudicating(done, total), 0.81, "食い違いを判定中 \(done)/\(total)")
+                        emit(.adjudicating(done, total), 0.81, String(localized: "食い違いを判定中 \(done)/\(total)"))
                     }
                     crossCheck.adjudications = adj
                     crossCheck.outcome = stat
@@ -248,14 +249,14 @@ public actor TranscriptionPipeline {
         var outcome = CorrectionOutcome()
         let correctionEnd = config.enableSummary ? 0.92 : 0.99
         if config.enableCorrection {
-            emit(.correcting, 0.82, "校正中")
+            emit(.correcting, 0.82, String(localized: "校正中"))
             let gate = EditGate(policy: config.gatePolicy, dictionary: config.dictionary)
             let c = Corrector(engine: config.useLanguageModel ? corrector : nil,
                               gate: gate, rules: config.rules,
                               dictionary: config.dictionary, requireAgreement: config.requireAgreement)
             let (corrected, stat) = await c.run(on: audited) { done, total in
                 emit(.correcting, 0.82 + Double(done) / Double(max(total, 1)) * (correctionEnd - 0.82),
-                     "校正中 \(done)/\(total)")
+                     String(localized: "校正中 \(done)/\(total)"))
             }
             audited = corrected
             outcome = stat
@@ -269,7 +270,7 @@ public actor TranscriptionPipeline {
             summary = await s.run(on: audited) { done, total in
                 emit(.summarizing(done, total),
                      correctionEnd + Double(done) / Double(max(total, 1)) * (0.99 - correctionEnd),
-                     "要約中 \(done)/\(total)")
+                     String(localized: "要約中 \(done)/\(total)"))
             }
         }
 
@@ -282,11 +283,11 @@ public actor TranscriptionPipeline {
         var plausibility: [PlausibilityFlag] = []
         if config.enablePlausibilityCheck, plausibilityChecker != nil {
             if isCancelled() { throw ASRError.cancelled }
-            emit(.correcting, 0.99, "文脈の点検中")
+            emit(.correcting, 0.99, String(localized: "文脈の点検中"))
             let a = PlausibilityAuditor(checker: plausibilityChecker,
                                         requireAgreement: config.requireAgreement)
             let (flags, stat) = await a.run(on: audited.filter { !$0.isSuppressed }) { done, total in
-                emit(.correcting, 0.99, "文脈の点検中 \(done)/\(total)")
+                emit(.correcting, 0.99, String(localized: "文脈の点検中 \(done)/\(total)"))
             }
             plausibility = flags
             self.lastPlausibilityOutcome = stat
@@ -298,7 +299,7 @@ public actor TranscriptionPipeline {
                                   modelName: engine.identifier,
                                   language: config.language,
                                   mode: config.mode)
-        emit(.done, 1.0, "完了")
+        emit(.done, 1.0, String(localized: "完了"))
         // カバー率は監査層が音声を見て出す。ここで尺の合計から上書きしない
         // （それをやっていたせいで、休憩を含む素材が 100% と報告されていた）。
         let transcript = Transcript(meta: meta, segments: audited, audit: report,

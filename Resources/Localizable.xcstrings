@@ -1,6 +1,72 @@
 {
   "sourceLanguage": "ja",
   "strings": {
+    "%@ で照合中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cross-checking with %@"
+          }
+        }
+      }
+    },
+    "%lld エンジン": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld engines"
+          }
+        }
+      }
+    },
+    "%lld セグメント / %lld 文字 / カバー率 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld segments · %lld characters · %@ coverage"
+          }
+        }
+      }
+    },
+    "%lld 件の変更": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld changes"
+          }
+        }
+      }
+    },
+    "1塊あたりの要点数: %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key points per chunk: %lld"
+          }
+        }
+      }
+    },
+    "1塊の文字数: %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Characters per chunk: %lld"
+          }
+        }
+      }
+    },
     "ASR検証": {
       "extractionState": "manual",
       "localizations": {
@@ -8,6 +74,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "ASR audit"
+          }
+        }
+      }
+    },
+    "FastConformer系。ReazonSpeech v2で学習": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FastConformer family, trained on ReazonSpeech v2"
           }
         }
       }
@@ -67,6 +144,28 @@
         }
       }
     },
+    "LLMデコーダ型。文脈から補うので、音響に無い語を書くことがある": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LLM decoder. It fills in from context, so it can write words the audio never contained"
+          }
+        }
+      }
+    },
+    "OS内蔵。取得不要で30秒（57分素材）。反復ループが出ない": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built into macOS. No download, 30 seconds for 57 minutes of audio, and no repetition loops"
+          }
+        }
+      }
+    },
     "OS内蔵エンジンで下書き。照合も校正もしない。57分の録音で30秒ほど。": {
       "extractionState": "manual",
       "localizations": {
@@ -74,6 +173,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Drafts with the built-in engine. No cross-check, no proofreading. About 30 seconds for a 57-minute recording."
+          }
+        }
+      }
+    },
+    "OS内蔵エンジンで下書きした。照合も校正もしていない。固有名詞と数字は崩れやすく、辞書による認識の誘導も効いていない": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drafted with the built-in engine. No cross-check and no proofreading. Proper nouns and numbers break easily, and the dictionary could not steer recognition"
           }
         }
       }
@@ -89,6 +199,17 @@
         }
       }
     },
+    "macOS 26 以降が必要": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requires macOS 26 or later"
+          }
+        }
+      }
+    },
     "mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています": {
       "extractionState": "manual",
       "localizations": {
@@ -96,6 +217,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Supports mov, mp4, m4a, mp3, wav and other formats AVFoundation can read"
+          }
+        }
+      }
+    },
+    "whisper で認識し、設定した照合を掛けた": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognized with whisper and cross-checked as configured"
           }
         }
       }
@@ -144,6 +276,17 @@
         }
       }
     },
+    "かなり静かでも拾う": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick up very quiet speech"
+          }
+        }
+      }
+    },
     "ここだけは文脈を手掛かりにします。ただし本文は書き換えません。モデルが返せるのは、行番号、その行にある語、ありうる語の3つだけで、返した語が本文になければ機械的に捨てます。通った場合も本文はそのままで、候補が横に並ぶだけです。同じ指摘が2回出たときだけ採用します。": {
       "extractionState": "manual",
       "localizations": {
@@ -166,6 +309,17 @@
         }
       }
     },
+    "このMacはApple Intelligenceに対応していない": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac does not support Apple Intelligence"
+          }
+        }
+      }
+    },
     "この版でできること": {
       "extractionState": "manual",
       "localizations": {
@@ -173,6 +327,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "About this version"
+          }
+        }
+      }
+    },
+    "この言語には対応していない: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This language is not supported: %@"
           }
         }
       }
@@ -254,6 +419,17 @@
         }
       }
     },
+    "やや厳しい": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Somewhat strict"
+          }
+        }
+      }
+    },
     "アプリ": {
       "extractionState": "manual",
       "localizations": {
@@ -287,6 +463,39 @@
         }
       }
     },
+    "キャンセルされた": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelled"
+          }
+        }
+      }
+    },
+    "キャンセルした": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelled"
+          }
+        }
+      }
+    },
+    "キャンセル中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelling…"
+          }
+        }
+      }
+    },
     "ゲートの内容（変更不可）": {
       "extractionState": "manual",
       "localizations": {
@@ -294,6 +503,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gate rules (fixed)"
+          }
+        }
+      }
+    },
+    "システムに従う": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match system"
+          }
+        }
+      }
+    },
+    "システム設定でApple Intelligenceが有効になっていない": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence is not enabled in System Settings"
           }
         }
       }
@@ -331,6 +562,17 @@
         }
       }
     },
+    "ファイル未選択": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No file selected"
+          }
+        }
+      }
+    },
     "モデル": {
       "extractionState": "manual",
       "localizations": {
@@ -338,6 +580,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Model"
+          }
+        }
+      }
+    },
+    "モデルが利用できない": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model is unavailable"
           }
         }
       }
@@ -353,6 +606,17 @@
         }
       }
     },
+    "モデルのダウンロード/準備が完了していない": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model has not finished downloading or preparing"
+          }
+        }
+      }
+    },
     "モデルの見出しが検証で落ちたため、原文から機械的に抜き出したもの": {
       "extractionState": "manual",
       "localizations": {
@@ -364,6 +628,17 @@
         }
       }
     },
+    "モデルを用意できない: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot prepare the model: %@"
+          }
+        }
+      }
+    },
     "ライセンス": {
       "extractionState": "manual",
       "localizations": {
@@ -371,6 +646,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "License"
+          }
+        }
+      }
+    },
+    "中断": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interrupted"
           }
         }
       }
@@ -408,6 +694,17 @@
         }
       }
     },
+    "入れると初回に %@ のダウンロードが走る": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adds a %@ download on first use"
+          }
+        }
+      }
+    },
     "全形式をフォルダに書き出す": {
       "extractionState": "manual",
       "localizations": {
@@ -426,6 +723,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Spans replaced by re-recognition"
+          }
+        }
+      }
+    },
+    "再起動": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart"
+          }
+        }
+      }
+    },
+    "再起動すると切り替わります。実行中の文字起こしは失われます。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The change takes effect after a restart. Any transcription in progress will be lost."
+          }
+        }
+      }
+    },
+    "初回だけ %@ のダウンロードが入る（モデル %lld 件）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A one-time %@ download (%lld models)"
           }
         }
       }
@@ -496,6 +826,17 @@
         }
       }
     },
+    "動画または音声ファイルをドロップ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop a video or audio file"
+          }
+        }
+      }
+    },
     "動画・音声ファイルをここにドロップ": {
       "extractionState": "manual",
       "localizations": {
@@ -551,6 +892,28 @@
         }
       }
     },
+    "反復ループの区間を読み直し中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-reading a repetition loop"
+          }
+        }
+      }
+    },
+    "取りこぼし疑い区間を再認識中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-recognizing spans of suspected dropped speech"
+          }
+        }
+      }
+    },
     "取りこぼし疑い区間を自動で再認識する": {
       "extractionState": "manual",
       "localizations": {
@@ -573,6 +936,17 @@
         }
       }
     },
+    "固有名詞が崩れやすい。語彙ヒント（辞書）と尤度に非対応なので一次認識には向かない": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proper nouns break easily. It supports neither vocabulary hints nor likelihoods, so it is unsuited to primary recognition"
+          }
+        }
+      }
+    },
     "固有名詞辞書": {
       "extractionState": "manual",
       "localizations": {
@@ -584,6 +958,17 @@
         }
       }
     },
+    "完了": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
     "実測では、whisper と parakeet の11分の比較で、判定145件のうち138件が読みの不一致でした。読みが違う箇所は音響に情報が残っているため、テキストだけの判断は確度が落ちます。既定では切ってあり、その分は判定せず人の確認に残します。": {
       "extractionState": "manual",
       "localizations": {
@@ -591,6 +976,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "In a measured comparison of whisper against parakeet over 11 minutes, 138 of 145 judgements involved differing readings. Where the readings differ, information remains in the audio, so judging from text alone is less reliable. This is off by default, leaving those cases for a person to check."
+          }
+        }
+      }
+    },
+    "容量優先。精度はわずかに落ちる": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smaller download, slightly lower accuracy"
           }
         }
       }
@@ -639,6 +1035,39 @@
         }
       }
     },
+    "押しかた": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode"
+          }
+        }
+      }
+    },
+    "整列・語尾・表記の違い %lld件も表示": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also show %lld alignment, inflection and notation differences"
+          }
+        }
+      }
+    },
+    "文脈から浮いて見える語（%lld件）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words that look out of place (%lld)"
+          }
+        }
+      }
+    },
     "文脈に合わない語の指摘": {
       "extractionState": "manual",
       "localizations": {
@@ -646,6 +1075,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Words that look out of place"
+          }
+        }
+      }
+    },
+    "文脈の点検中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking context"
+          }
+        }
+      }
+    },
+    "文脈の点検中 %lld/%lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking context %lld/%lld"
+          }
+        }
+      }
+    },
+    "既定。日本語の精度と速度のバランスが最も良い": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default. The best balance of accuracy and speed for Japanese"
           }
         }
       }
@@ -661,6 +1123,28 @@
         }
       }
     },
+    "日本語35,000時間で学習。RNN-T系なのでwhisperと誤りが独立しやすい": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trained on 35,000 hours of Japanese. Being RNN-T, its errors stay independent of whisper's"
+          }
+        }
+      }
+    },
+    "最高精度だがturboの3〜4倍遅い": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Highest accuracy, but 3–4× slower than turbo"
+          }
+        }
+      }
+    },
     "未判定": {
       "extractionState": "manual",
       "localizations": {
@@ -668,6 +1152,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Undecided"
+          }
+        }
+      }
+    },
+    "未知の理由でモデルが利用できない": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model is unavailable for an unknown reason"
           }
         }
       }
@@ -684,6 +1179,17 @@
       }
     },
     "校正": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proofreading"
+          }
+        }
+      }
+    },
+    "校正LLM": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -716,6 +1222,28 @@
         }
       }
     },
+    "校正中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proofreading"
+          }
+        }
+      }
+    },
+    "校正中 %lld/%lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proofreading %lld/%lld"
+          }
+        }
+      }
+    },
     "棄却された提案": {
       "extractionState": "manual",
       "localizations": {
@@ -738,6 +1266,17 @@
         }
       }
     },
+    "検証中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auditing"
+          }
+        }
+      }
+    },
     "標準": {
       "extractionState": "manual",
       "localizations": {
@@ -745,6 +1284,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Standard"
+          }
+        }
+      }
+    },
+    "標準の音量": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default"
+          }
+        }
+      }
+    },
+    "準備中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing"
           }
         }
       }
@@ -767,6 +1328,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Spans whose text was discarded as silence or repetition. Check here whether anything was dropped by mistake."
+          }
+        }
+      }
+    },
+    "無音区間の切り出しに使う": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used to isolate silent spans"
           }
         }
       }
@@ -811,6 +1383,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Check again"
+          }
+        }
+      }
+    },
+    "発話の無い区間（%lld件）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spans with no speech (%lld)"
+          }
+        }
+      }
+    },
+    "破棄した本文（%lld件）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discarded text (%lld)"
           }
         }
       }
@@ -870,6 +1464,17 @@
         }
       }
     },
+    "表示言語": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display language"
+          }
+        }
+      }
+    },
     "要約": {
       "extractionState": "manual",
       "localizations": {
@@ -888,6 +1493,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Build a summary"
+          }
+        }
+      }
+    },
+    "要約中 %lld/%lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summarizing %lld/%lld"
           }
         }
       }
@@ -936,6 +1552,17 @@
         }
       }
     },
+    "認識に失敗: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognition failed: %@"
+          }
+        }
+      }
+    },
     "認識エンジンは開始ボタンで選びます。\n\n「高速」は OS 内蔵のエンジンを使います。モデルの取得が要らず、57分の録音を30秒ほどで通しますが、照合も校正も行いません。固有名詞が崩れやすく、辞書による認識の誘導も効かない点にご注意ください。\n\n「標準」は下で選んだ whisper のモデルを使い、照合タブで指定したエンジンで読み直します。": {
       "extractionState": "manual",
       "localizations": {
@@ -943,6 +1570,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "The recognition engine is chosen by the start button.\n\nFast uses the engine built into macOS. It needs no download and gets through a 57-minute recording in about 30 seconds, but performs no cross-check and no proofreading. Proper nouns break more easily, and the dictionary cannot steer recognition.\n\nStandard uses the whisper model selected below, then re-reads with the engines chosen in the Cross-check tab."
+          }
+        }
+      }
+    },
+    "認識中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcribing"
+          }
+        }
+      }
+    },
+    "認識中 %lld%%": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcribing %lld%%"
           }
         }
       }
@@ -965,6 +1614,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Also judge disagreements with different readings (not recommended)"
+          }
+        }
+      }
+    },
+    "読み込み中…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading…"
+          }
+        }
+      }
+    },
+    "読み込めない: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot read the file: %@"
           }
         }
       }
@@ -1002,6 +1673,17 @@
         }
       }
     },
+    "選択中で未導入の合計: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected but not yet installed: %@"
+          }
+        }
+      }
+    },
     "長さ比 0.75〜1.35 の外は棄却": {
       "extractionState": "manual",
       "localizations": {
@@ -1024,6 +1706,17 @@
         }
       }
     },
+    "開始": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting"
+          }
+        }
+      }
+    },
     "静かでも拾う": {
       "extractionState": "manual",
       "localizations": {
@@ -1031,6 +1724,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pick up quiet speech"
+          }
+        }
+      }
+    },
+    "非自己回帰。作文せず、実行ごとに揺れない（書庫1.0GB／展開後は約240MB）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non-autoregressive. It does not invent prose and does not vary between runs (1.0 GB archive, about 240 MB unpacked)"
           }
         }
       }
@@ -1068,6 +1772,28 @@
         }
       }
     },
+    "音声を抽出中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extracting audio"
+          }
+        }
+      }
+    },
+    "音声トラックが無い（%@）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No audio track (%@)"
+          }
+        }
+      }
+    },
     "食い違いの判定": {
       "extractionState": "manual",
       "localizations": {
@@ -1075,6 +1801,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Judging disagreements"
+          }
+        }
+      }
+    },
+    "食い違いを判定中 %lld/%lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Judging disagreements %lld/%lld"
+          }
+        }
+      }
+    },
+    "食い違い（%lld件）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disagreements (%lld)"
           }
         }
       }
