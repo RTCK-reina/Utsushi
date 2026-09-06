@@ -1,13 +1,20 @@
 import SwiftUI
 
 struct SettingsView: View {
+    /// 選択中の表示言語。切り替えても現在の画面には反映されない（起動時に読まれるため）。
+    @State private var language = AppLanguage.current
+    /// 起動時点の言語。ここへ戻したら再起動の案内を消す。
+    @State private var launchedWith = AppLanguage.current
+    @State private var needsRestart = false
     @EnvironmentObject var model: AppModel
 
     /// dBFS は音の分野の外では通じない。数値は残しつつ、意味の分かる語を添える。
-    private var silenceLabel: String {
+    /// `Text` に `String` を渡すと verbatim になり翻訳が引かれない。
+    /// ここは表示専用なので `LocalizedStringKey` で返す。
+    private var silenceLabel: LocalizedStringKey {
         switch model.settings.silenceDBFS {
         case ..<(-55): return "かなり静かでも拾う"
-        case ..<(-40): return "標準"
+        case ..<(-40): return "標準の音量"
         case ..<(-32): return "やや厳しい"
         default:       return "はっきりした声だけ"
         }
@@ -16,6 +23,23 @@ struct SettingsView: View {
     /// 版と作者。書き出しにも同じ文字列が載るので、出力を見た人がどのビルドか辿れる。
     private var aboutTab: some View {
         Form {
+            Section("表示言語") {
+                Picker("表示言語", selection: $language) {
+                    ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
+                }
+                .onChange(of: language) { _, new in
+                    AppLanguage.apply(new)
+                    needsRestart = new != launchedWith
+                }
+                if needsRestart {
+                    HStack {
+                        Text("再起動すると切り替わります。実行中の文字起こしは失われます。")
+                            .font(.caption).foregroundStyle(.orange)
+                        Spacer()
+                        Button("再起動") { AppLanguage.restart() }
+                    }
+                }
+            }
             Section {
                 LabeledContent("アプリ", value: AppInfo.name)
                 LabeledContent("バージョン", value: AppInfo.displayVersion)
@@ -170,8 +194,9 @@ struct SettingsView: View {
                                 Label("導入済み", systemImage: "checkmark.circle.fill")
                                     .font(.caption2).foregroundStyle(.green)
                             } else {
-                                Label("入れると初回に \(ModelCatalog.sizeText(m.approximateBytes)) "
-                                      + "のダウンロードが走る",
+                                // 連結すると LocalizedStringKey にならず翻訳が引かれない。
+                                // 1つの文字列リテラルに保つこと。
+                                Label("入れると初回に \(ModelCatalog.sizeText(m.approximateBytes)) のダウンロードが走る",
                                       systemImage: "arrow.down.circle")
                                     .font(.caption2).foregroundStyle(.orange)
                             }

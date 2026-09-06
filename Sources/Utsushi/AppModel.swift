@@ -11,7 +11,7 @@ final class AppModel: ObservableObject {
     @Published var sourceURL: URL?
     @Published var isRunning = false
     @Published var progress: Double = 0
-    @Published var statusMessage = "動画または音声ファイルをドロップ"
+    @Published var statusMessage = String(localized: "動画または音声ファイルをドロップ")
     @Published var errorMessage: String?
     /// 今走っている（走った）押しかた。画面の表示に使う。
     @Published var runMode: RunMode = .quality
@@ -74,7 +74,7 @@ final class AppModel: ObservableObject {
         if #available(macOS 26.0, *) {
             correctionAvailability = await FoundationModelsCorrector().isAvailable()
         } else {
-            correctionAvailability = .unavailable("macOS 26 以降が必要")
+            correctionAvailability = .unavailable(String(localized: "macOS 26 以降が必要"))
         }
     }
 
@@ -93,7 +93,7 @@ final class AppModel: ObservableObject {
         errorMessage = nil
         // ヘッダのタイトルが既にファイル名なので、ここは別の情報を出す。
         // 尺と音声トラックの有無を先に見せておくと、開始前に「読めるファイルか」が分かる。
-        statusMessage = "読み込み中…"
+        statusMessage = String(localized: "読み込み中…")
         Task { [weak self] in
             let info = await Self.describe(url)
             self?.statusMessage = info
@@ -109,11 +109,11 @@ final class AppModel: ObservableObject {
             let duration = try await asset.load(.duration).seconds
             let tracks = try await asset.loadTracks(withMediaType: .audio)
             guard !tracks.isEmpty else {
-                return "音声トラックが無い（\(sizeText)）"
+                return String(localized: "音声トラックが無い（\(sizeText)）")
             }
             return "\(Exporter.hms(duration))・\(sizeText)・音声トラック \(tracks.count)"
         } catch {
-            return "読み込めない: \(error.localizedDescription)"
+            return String(localized: "読み込めない: \(error.localizedDescription)")
         }
     }
 
@@ -127,7 +127,7 @@ final class AppModel: ObservableObject {
         isRunning = true
         progress = 0
         runMode = mode
-        statusMessage = "準備中"
+        statusMessage = String(localized: "準備中")
 
         let engine: any ASREngine
         switch mode {
@@ -193,15 +193,15 @@ final class AppModel: ObservableObject {
                 self.correctionOutcome = outcome
                 self.isRunning = false
                 self.progress = 1
-                self.statusMessage = "完了"
+                self.statusMessage = String(localized: "完了")
             } catch {
                 guard let self else { return }
                 self.isRunning = false
                 if let asr = error as? ASRError, case .cancelled = asr {
                     self.errorMessage = nil
-                    self.statusMessage = "キャンセルした"
+                    self.statusMessage = String(localized: "キャンセルした")
                 } else {
-                    self.statusMessage = "中断"
+                    self.statusMessage = String(localized: "中断")
                     self.errorMessage = error.localizedDescription
                 }
             }
@@ -211,7 +211,7 @@ final class AppModel: ObservableObject {
     func cancel() {
         guard let pipeline else { return }
         Task { await pipeline.cancel() }
-        statusMessage = "キャンセル中"
+        statusMessage = String(localized: "キャンセル中")
     }
 
     // MARK: - 校正の採否

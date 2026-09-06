@@ -48,10 +48,10 @@ public enum ASRError: LocalizedError {
     case localeUnsupported(String)
     public var errorDescription: String? {
         switch self {
-        case .modelUnavailable(let m): return "モデルを用意できない: \(m)"
-        case .engineFailed(let m): return "認識に失敗: \(m)"
-        case .cancelled: return "キャンセルされた"
-        case .localeUnsupported(let l): return "この言語には対応していない: \(l)"
+        case .modelUnavailable(let m): return String(localized: "モデルを用意できない: \(m)")
+        case .engineFailed(let m): return String(localized: "認識に失敗: \(m)")
+        case .cancelled: return String(localized: "キャンセルされた")
+        case .localeUnsupported(let l): return String(localized: "この言語には対応していない: \(l)")
         }
     }
 }

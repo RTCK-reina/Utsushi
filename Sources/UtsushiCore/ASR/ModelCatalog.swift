@@ -74,19 +74,19 @@ public struct ModelCatalog: Sendable {
                            url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin")!,
                            sizeBytes: 1_624_555_275)],
               approximateBytes: 1_624_555_275,
-              note: "既定。日本語の精度と速度のバランスが最も良い"),
+              note: String(localized: "既定。日本語の精度と速度のバランスが最も良い")),
         Model(id: "ggml-large-v3-turbo-q5_0", displayName: "large-v3-turbo (q5_0 量子化)", engine: .whisper,
               items: [Item(role: "model", fileName: "ggml-large-v3-turbo-q5_0.bin",
                            url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin")!,
                            sizeBytes: 574_041_195)],
               approximateBytes: 574_041_195,
-              note: "容量優先。精度はわずかに落ちる"),
+              note: String(localized: "容量優先。精度はわずかに落ちる")),
         Model(id: "ggml-large-v3", displayName: "large-v3", engine: .whisper,
               items: [Item(role: "model", fileName: "ggml-large-v3.bin",
                            url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin")!,
                            sizeBytes: 3_095_033_483)],
               approximateBytes: 3_095_033_483,
-              note: "最高精度だがturboの3〜4倍遅い"),
+              note: String(localized: "最高精度だがturboの3〜4倍遅い")),
     ]
 
     /// 照合用の独立エンジン。whisper とアーキテクチャが異なるので誤りが相関しにくい。
@@ -108,7 +108,7 @@ public struct ModelCatalog: Sendable {
               ],
               archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-ja-reazonspeech-2024-08-01.tar.bz2")!,
               approximateBytes: 160_000_000,
-              note: "日本語35,000時間で学習。RNN-T系なのでwhisperと誤りが独立しやすい"),
+              note: String(localized: "日本語35,000時間で学習。RNN-T系なのでwhisperと誤りが独立しやすい")),
         // LLMデコーダ型。他の2つと違い、音響から素直に写すのではなく
         // 文脈から補って書く。精度指標では有利に出るが、このアプリでは
         // ゲートより上流で本文が創作されうる点に注意がいる。
@@ -134,7 +134,7 @@ public struct ModelCatalog: Sendable {
               ],
               archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25.tar.bz2")!,
               approximateBytes: 940_000_000,
-              note: "LLMデコーダ型。文脈から補うので、音響に無い語を書くことがある",
+              note: String(localized: "LLMデコーダ型。文脈から補うので、音響に無い語を書くことがある"),
               attribution: "This product includes Qwen3-ASR by Alibaba, licensed under Apache-2.0.",
               caveat: """
                       実行のたびに出力が変わる（同じ音声・同じ設定で 753 / 758 / 759 文字）。\
@@ -178,7 +178,7 @@ public struct ModelCatalog: Sendable {
               ],
               archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2")!,
               approximateBytes: 1_047_870_769,
-              note: "非自己回帰。作文せず、実行ごとに揺れない（書庫1.0GB／展開後は約240MB）",
+              note: String(localized: "非自己回帰。作文せず、実行ごとに揺れない（書庫1.0GB／展開後は約240MB）"),
               attribution: "This product includes SenseVoice-Small by Alibaba (FunASR), Apache-2.0."),
         Model(id: "sherpa-parakeet-ja",
               displayName: "NVIDIA Parakeet ja (nemo-ctc int8)",
@@ -191,7 +191,7 @@ public struct ModelCatalog: Sendable {
               ],
               archiveURL: URL(string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt_ctc-0.6b-ja-35000-int8.tar.bz2")!,
               approximateBytes: 670_000_000,
-              note: "FastConformer系。ReazonSpeech v2で学習",
+              note: String(localized: "FastConformer系。ReazonSpeech v2で学習"),
               attribution: "This product includes NVIDIA parakeet-tdt_ctc-0.6b-ja, licensed under CC BY 4.0."),
     ]
 
@@ -201,7 +201,7 @@ public struct ModelCatalog: Sendable {
                      url: URL(string: "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin")!,
                      sizeBytes: 885_098)],
         approximateBytes: 885_098,
-        note: "無音区間の切り出しに使う")
+        note: String(localized: "無音区間の切り出しに使う"))
 
     /// OS内蔵の SpeechTranscriber。**ダウンロードするファイルが無いので `items` は空**。
     /// 言語モデルの取得は `SpeechAnalyzerEngine.prepare` が OS の API 経由で行う。
@@ -217,8 +217,8 @@ public struct ModelCatalog: Sendable {
         engine: .appleSpeechAnalyzer,
         items: [],
         approximateBytes: 0,
-        note: "OS内蔵。取得不要で30秒（57分素材）。反復ループが出ない",
-        caveat: "固有名詞が崩れやすい。語彙ヒント（辞書）と尤度に非対応なので一次認識には向かない")
+        note: String(localized: "OS内蔵。取得不要で30秒（57分素材）。反復ループが出ない"),
+        caveat: String(localized: "固有名詞が崩れやすい。語彙ヒント（辞書）と尤度に非対応なので一次認識には向かない"))
 
     /// **ダウンロード定義を持つ**モデル。取得・容量計算・配布定義の検証はこれを使う。
     /// OS内蔵の `appleModel` は含まない（落とすファイルが無いため）。
