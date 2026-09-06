@@ -227,9 +227,18 @@ final class EndToEndTests: XCTestCase {
         }
         // 後退の見張り。**達成目標ではない。**
         //
-        // 分類を入れる前は282件で、整列・語尾・表記を分けて171件。
-        // ここに置いた200は「これ以上増えたら何かが壊れている」という線であって、
-        // 「171件なら人が読める」という意味ではない。11分で171件は依然として多すぎる。
+        // 以前はここを絶対数（200件未満）で見ていたが、それは誤りだった。
+        // **whisper のセグメント化が実行ごとに変わる**ので、10秒窓での突き合わせ結果が
+        // 大きく動く。実測では同じ素材・同じコードで
+        //   24セグメント/1064文字 → 食い違い309（中身170・55%）
+        //   22セグメント/1077文字 → 食い違い376（中身232・62%）
+        // となり、絶対数の線を跨いだ。分類は両方とも効いている（整列・語尾・表記が
+        // それぞれ数十件ずつ分かれている）のに、件数だけで落ちていた。
+        //
+        // 見たいのは「分類が効いているか」なので、全体に対する割合で見る。
+        // 分類が完全に壊れれば全件が中身の違いになり 100% に張り付く。
+        // 件数そのものが多すぎる問題（11分で170件超）は分類では解けない。
+        // 原因は比較の単位（語の途中で切れる）で、README に未解決として書いてある。
         //
         // 減らし切れない理由は分類ではなく比較の単位にある。
         // 10秒の窓で文字列を機械的に突き合わせているので、スパンが語の途中で切れる
@@ -239,8 +248,13 @@ final class EndToEndTests: XCTestCase {
         //
         // 直すなら、文（。？！と長い間）を単位に整列し直す必要がある。
         // それは `TranscriptAlignment` の作り直しなので、ここでは踏み込んでいない。
-        XCTAssertLessThan(substantive.count, 200,
-                          "人に残る件数が分類前の水準に戻っている。分類が効いていない疑い")
+        let classified = t.crossCheck.disagreements.count - substantive.count
+        XCTAssertGreaterThan(classified, 0, "整列・語尾・表記が1件も分類されていない")
+        let substantiveRatio = Double(substantive.count)
+            / Double(max(t.crossCheck.disagreements.count, 1))
+        XCTAssertLessThan(substantiveRatio, 0.75,
+                          "食い違いの \(Int(substantiveRatio * 100))% が中身の違いに残っている。"
+                          + "分類前の水準に戻っており、分類が効いていない疑い")
         XCTAssertTrue(stages.contains("crossChecking"), "照合の段に入っていない")
         XCTAssertTrue(stages.contains("summarizing"), "要約の段に入っていない")
 
@@ -278,7 +292,6 @@ final class EndToEndTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url) }
 
         var s = SessionSettings()
-        s.engineChoice = .apple
         s.silenceDBFS = -52
         s.crossCheckModelIDs = [ModelCatalog.sherpaModels[0].id]
         s.enableSummary = false

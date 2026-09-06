@@ -1,0 +1,1095 @@
+{
+  "sourceLanguage": "ja",
+  "strings": {
+    "ASR検証": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ASR audit"
+          }
+        }
+      }
+    },
+    "Foundation Models": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foundation Models"
+          }
+        }
+      }
+    },
+    "Foundation Models の文脈長は 8,192 トークン（日本語でおよそ1万文字）です。長い収録はこの単位に分けて順に処理します。大きくすると文脈は広がりますが、上限を超えると失敗します。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foundation Models has a context window of 8,192 tokens, roughly 10,000 Japanese characters. Long recordings are split into chunks of this size and processed in order. A larger chunk widens the context but fails once the limit is passed."
+          }
+        }
+      }
+    },
+    "LLM が返せるのは候補の番号だけなので、候補にない文字列が出ることはありません。読みが一致する食い違い（機構と気候など）は音響で区別できないため、文脈による判断が適しています。一方、読みが違う食い違いは音響に情報が残っているので、テキストだけで判断させると、見えない誤りが増えます。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model can only return the number of a candidate, so it can never produce a string that was not offered. Where readings match (as with 機構 and 気候) the audio cannot separate them, which makes context the right tool. Where readings differ, the audio still holds the answer, and judging from text alone adds errors you cannot see."
+          }
+        }
+      }
+    },
+    "LLMによる校正を行う": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proofread with a language model"
+          }
+        }
+      }
+    },
+    "LLMに文脈から判定させる": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Let the model decide from context"
+          }
+        }
+      }
+    },
+    "OS内蔵エンジンで下書き。照合も校正もしない。57分の録音で30秒ほど。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drafts with the built-in engine. No cross-check, no proofreading. About 30 seconds for a 57-minute recording."
+          }
+        }
+      }
+    },
+    "github.com/RTCK-reina/Utsushi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "github.com/RTCK-reina/Utsushi"
+          }
+        }
+      }
+    },
+    "mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supports mov, mp4, m4a, mp3, wav and other formats AVFoundation can read"
+          }
+        }
+      }
+    },
+    "whisper で認識し、設定した照合を掛ける。57分の録音で5〜10分": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognizes with whisper and applies the cross-check you configured. 5–10 minutes for a 57-minute recording"
+          }
+        }
+      }
+    },
+    "whisper と系統の違うエンジンで同じ音声を認識し、出力が食い違う箇所を取り出します。両者が一致していれば信用でき、食い違っていれば怪しい、という判断材料になります。同じ系統のモデルを足しても誤りが相関するだけなので、ここに並ぶのはアーキテクチャの異なるものだけです。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognizes the same audio with an engine of a different lineage and extracts the places where the outputs disagree. Agreement is a reason to trust a passage; disagreement is a reason to look. Adding a model of the same lineage only correlates the errors, so only differing architectures are listed here."
+          }
+        }
+      }
+    },
+    "「標準」で使うモデル": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model used by Standard"
+          }
+        }
+      }
+    },
+    "いずれも CPU で動きます（静的リンクした onnxruntime では CoreML が使えないためです）。照合を1つ足すごとに、収録時間ぶんの認識がもう一周走ります。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All of these run on the CPU, because a statically linked onnxruntime cannot use CoreML. Each cross-check engine adds another full pass over the recording."
+          }
+        }
+      }
+    },
+    "ここだけは文脈を手掛かりにします。ただし本文は書き換えません。モデルが返せるのは、行番号、その行にある語、ありうる語の3つだけで、返した語が本文になければ機械的に捨てます。通った場合も本文はそのままで、候補が横に並ぶだけです。同じ指摘が2回出たときだけ採用します。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the one place that uses context as evidence. Even so, the transcript is never rewritten. The model may return only a line number, a word on that line, and a word that might belong there; if the word it names is absent from the line, the suggestion is dropped mechanically. When a suggestion passes, the text stays as it was and the candidate is shown alongside it. A suggestion is kept only when it appears twice."
+          }
+        }
+      }
+    },
+    "ここに登録した語は、2か所で使われます。ひとつは認識時の語彙ヒント（whisper の initial_prompt）で、モデルがその語を知らないことによる誤認識を減らします。もうひとつは、認識後の決定論的な置換です。読み一致ゲートは読みが変わる書き換えを必ず棄却するため、社名や人名のような誤認識を直せる経路は、ここだけになります。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words registered here are used in two places. The first is as a vocabulary hint during recognition (whisper's initial_prompt), which reduces errors caused by the model not knowing a word. The second is a deterministic replacement after recognition. Because the reading gate always rejects an edit that changes pronunciation, this is the only route by which a misrecognized company or personal name can be corrected."
+          }
+        }
+      }
+    },
+    "この版でできること": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About this version"
+          }
+        }
+      }
+    },
+    "これより小さい音しかない区間は、認識結果が出ていても本文を捨てます。無音に対して文章を出してしまう「幻聴」を止めるための、主な仕組みです。右に寄せるほど幻聴は減りますが、小声のやりとりを落としやすくなります。既定の -45 dBFS 付近から動かす必要は、ふつうありません。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spans quieter than this have their text discarded even when the engine produced words. This is the main defence against the model inventing speech in silence. Moving right removes more of it but starts dropping quiet exchanges. There is usually no reason to move away from the default of about -45 dBFS."
+          }
+        }
+      }
+    },
+    "これらはプロンプトではなくコードで強制されている。緩めるにはソースを変更する必要がある。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These are enforced in code, not in the prompt. Relaxing them requires changing the source."
+          }
+        }
+      }
+    },
+    "すべてのエンジンの出力が一致しました。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All engines produced the same text."
+          }
+        }
+      }
+    },
+    "すべてのセグメントが原文のままです。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every segment is unchanged from the original."
+          }
+        }
+      }
+    },
+    "すべて原文に戻す": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert all"
+          }
+        }
+      }
+    },
+    "なし": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
+          }
+        }
+      }
+    },
+    "はっきりした声だけ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear speech only"
+          }
+        }
+      }
+    },
+    "アプリ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        }
+      }
+    },
+    "エンジン": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine"
+          }
+        }
+      }
+    },
+    "キャンセル": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "ゲートの内容（変更不可）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gate rules (fixed)"
+          }
+        }
+      }
+    },
+    "バージョン": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        }
+      }
+    },
+    "ファイルを選ぶ…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a file…"
+          }
+        }
+      }
+    },
+    "ファイルを開く…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open a file…"
+          }
+        }
+      }
+    },
+    "モデル": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model"
+          }
+        }
+      }
+    },
+    "モデルには、どの行が重要かを示す行番号と短い見出しだけを返させ、本文は文字起こしからそのまま引用します。要約文をモデルに書かせる経路はありません。見出しは、引用にない数値・英数字・カタカナ語を含む場合に棄却され、代わりに原文の先頭が機械的に切り出されます。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model returns only line numbers marking what matters, plus a short headline. The body is quoted from the transcript unchanged; there is no path by which the model writes prose. A headline containing digits, Latin text or katakana absent from the quotation is rejected, and the opening of the source line is used instead."
+          }
+        }
+      }
+    },
+    "モデルの見出しが検証で落ちたため、原文から機械的に抜き出したもの": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model's headline failed verification, so this was taken from the transcript"
+          }
+        }
+      }
+    },
+    "ライセンス": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "License"
+          }
+        }
+      }
+    },
+    "中身の違いはありません。残りは、整列・語尾・表記の違いです。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No substantive differences. The rest are alignment, inflection, and notation."
+          }
+        }
+      }
+    },
+    "作者": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author"
+          }
+        }
+      }
+    },
+    "保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "全形式をフォルダに書き出す": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export every format to a folder"
+          }
+        }
+      }
+    },
+    "再認識で差し替えた区間": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spans replaced by re-recognition"
+          }
+        }
+      }
+    },
+    "判定対象外": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not judged"
+          }
+        }
+      }
+    },
+    "判定済み": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Judged"
+          }
+        }
+      }
+    },
+    "別のファイル…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another file…"
+          }
+        }
+      }
+    },
+    "別エンジンで読み直して食い違いを探す": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-read with another engine to find disagreements"
+          }
+        }
+      }
+    },
+    "利用可能": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Available"
+          }
+        }
+      }
+    },
+    "削除": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "動画・音声ファイルをここにドロップ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop a video or audio file here"
+          }
+        }
+      }
+    },
+    "区間ごとに、最も文脈に合わない語を1つ選んでいます。誤りのない区間でも1件は出るため、誤りの証拠ではなく確認の手掛かりとしてご覧ください。本文は書き換えていません。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One word per span is picked as the least plausible. A span with no errors still yields one, so treat these as prompts to check rather than proof of error. The transcript itself is untouched."
+          }
+        }
+      }
+    },
+    "原文にない漢語を含む見出しを棄却します。「予算を承認」が「予算を却下」になるような意味の反転を止められますが、実測（11分の素材）では見出し3件が3件とも棄却され、モデル由来の見出しは0%になりました。棄却されると原文の先頭を切り出した見出しに替わるため、引用のすぐ上に同じ文が並びます。切ると言い換えの自由度は戻りますが、反転を止める防壁は数値・英数字・カタカナ語だけになります。要約タブの「モデル見出しが通った割合」で効果を見て決めてください。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejects headlines containing Sino-Japanese words absent from the source. This stops reversals of meaning such as \"approve the budget\" becoming \"reject the budget\", but in a measurement over an 11-minute clip all three headlines were rejected and none came from the model. A rejected headline is replaced by the opening of the source line, so the same sentence appears immediately above its own quotation. Turning this off restores freedom to paraphrase, leaving digits, Latin text and katakana as the only guard against reversal. Judge by the share of model headlines that pass, shown in the Summary tab."
+          }
+        }
+      }
+    },
+    "原文に戻す": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert"
+          }
+        }
+      }
+    },
+    "原文に無い英数字トークンの出現は棄却": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejects new alphanumeric tokens absent from the source"
+          }
+        }
+      }
+    },
+    "取りこぼし疑い区間を自動で再認識する": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-recognize spans suspected of dropped speech"
+          }
+        }
+      }
+    },
+    "同じ提案が2回出た場合のみ採用する": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept only when the same suggestion appears twice"
+          }
+        }
+      }
+    },
+    "固有名詞辞書": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proper noun dictionary"
+          }
+        }
+      }
+    },
+    "実測では、whisper と parakeet の11分の比較で、判定145件のうち138件が読みの不一致でした。読みが違う箇所は音響に情報が残っているため、テキストだけの判断は確度が落ちます。既定では切ってあり、その分は判定せず人の確認に残します。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In a measured comparison of whisper against parakeet over 11 minutes, 138 of 145 judgements involved differing readings. Where the readings differ, information remains in the audio, so judging from text alone is less reliable. This is off by default, leaving those cases for a person to check."
+          }
+        }
+      }
+    },
+    "導入済み": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed"
+          }
+        }
+      }
+    },
+    "尤度が低い区間": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low-confidence spans"
+          }
+        }
+      }
+    },
+    "情報": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
+          }
+        }
+      }
+    },
+    "意味が通らない語をモデルに指摘させる": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Let the model flag words that do not make sense"
+          }
+        }
+      }
+    },
+    "文脈に合わない語の指摘": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words that look out of place"
+          }
+        }
+      }
+    },
+    "日本語": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Japanese"
+          }
+        }
+      }
+    },
+    "未判定": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undecided"
+          }
+        }
+      }
+    },
+    "本体は MIT ライセンスです。実行時に取得するモデルは、それぞれ別のライセンスに従います。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app itself is MIT licensed. Models downloaded at run time follow their own licenses."
+          }
+        }
+      }
+    },
+    "校正": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proofreading"
+          }
+        }
+      }
+    },
+    "校正を適用": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        }
+      }
+    },
+    "校正ゲート": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proofreading gate"
+          }
+        }
+      }
+    },
+    "棄却された提案": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejected suggestions"
+          }
+        }
+      }
+    },
+    "検出なし": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing detected"
+          }
+        }
+      }
+    },
+    "標準": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standard"
+          }
+        }
+      }
+    },
+    "無音とみなす音の小ささ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Level below which audio counts as silence"
+          }
+        }
+      }
+    },
+    "無音または反復として本文を捨てた区間です。誤って捨てていないかを、ここで確認できます。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spans whose text was discarded as silence or repetition. Check here whether anything was dropped by mistake."
+          }
+        }
+      }
+    },
+    "照合": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cross-check"
+          }
+        }
+      }
+    },
+    "照合はエンジン間の食い違いしか見られないため、すべてのエンジンが同じ間違え方をした箇所は素通りします。実測でも「期初」が4エンジンすべてで「気象」になり、そのまま出力されていました。音響の多数決では、原理的に拾えない種類の誤りです。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A cross-check can only see where engines disagree, so a passage that every engine got wrong the same way passes straight through. In one measurement all four engines turned 期初 into 気象 and it was published as-is. A majority vote over acoustics cannot catch this class of error."
+          }
+        }
+      }
+    },
+    "照合エンジン": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cross-check engines"
+          }
+        }
+      }
+    },
+    "状態を再確認": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check again"
+          }
+        }
+      }
+    },
+    "編集距離 40 超は棄却": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejects edits with a distance above 40"
+          }
+        }
+      }
+    },
+    "自動判定": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detect automatically"
+          }
+        }
+      }
+    },
+    "自動判定は、話者が言語を切り替える収録で外しやすい。分かっているなら指定する方が安定する。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic detection often fails when speakers switch languages. Naming the language is more stable when you know it."
+          }
+        }
+      }
+    },
+    "英語": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English"
+          }
+        }
+      }
+    },
+    "著作権": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright"
+          }
+        }
+      }
+    },
+    "要約": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summary"
+          }
+        }
+      }
+    },
+    "要約を作る": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Build a summary"
+          }
+        }
+      }
+    },
+    "見出しの検証を厳しくする": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify headlines strictly"
+          }
+        }
+      }
+    },
+    "設定の「校正」タブで要約を有効にすると、\\n次回の実行から要点を抜き出します。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on summaries in the Proofreading tab\\nto extract key points on the next run."
+          }
+        }
+      }
+    },
+    "設定の「照合」タブで別エンジンを有効にすると、\\n食い違う箇所を洗い出せます。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable another engine in the Cross-check tab\\nto surface where the engines disagree."
+          }
+        }
+      }
+    },
+    "設定（⌘,）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings (⌘,)"
+          }
+        }
+      }
+    },
+    "認識エンジンは開始ボタンで選びます。\n\n「高速」は OS 内蔵のエンジンを使います。モデルの取得が要らず、57分の録音を30秒ほどで通しますが、照合も校正も行いません。固有名詞が崩れやすく、辞書による認識の誘導も効かない点にご注意ください。\n\n「標準」は下で選んだ whisper のモデルを使い、照合タブで指定したエンジンで読み直します。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The recognition engine is chosen by the start button.\n\nFast uses the engine built into macOS. It needs no download and gets through a 57-minute recording in about 30 seconds, but performs no cross-check and no proofreading. Proper nouns break more easily, and the dictionary cannot steer recognition.\n\nStandard uses the whisper model selected below, then re-reads with the engines chosen in the Cross-check tab."
+          }
+        }
+      }
+    },
+    "読みが違う判定は音響情報を使っていないため、確度が落ちます。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Judging differing readings ignores the acoustics, so confidence drops."
+          }
+        }
+      }
+    },
+    "読みが違う食い違いも判定させる（非推奨）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also judge disagreements with different readings (not recommended)"
+          }
+        }
+      }
+    },
+    "読み（発音）が変わる書き換えは棄却": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejects edits that change the reading"
+          }
+        }
+      }
+    },
+    "辞書": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictionary"
+          }
+        }
+      }
+    },
+    "追加": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        }
+      }
+    },
+    "長さ比 0.75〜1.35 の外は棄却": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejects length ratios outside 0.75–1.35"
+          }
+        }
+      }
+    },
+    "閉じる": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
+    },
+    "静かでも拾う": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick up quiet speech"
+          }
+        }
+      }
+    },
+    "音声の言語": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spoken language"
+          }
+        }
+      }
+    },
+    "音声はこの Mac の中だけで処理されます。外部に送信されることはありません。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio is processed entirely on this Mac. Nothing is sent anywhere."
+          }
+        }
+      }
+    },
+    "音声はこの Mac の外に出ません。\n認識・検証・校正・要約のすべてが端末内で動きます。\n\n書き出しの冒頭にも同じバージョンが載ります。\n検証記録の意味はバージョンによって変わることがあるため\n（0.4.1 より前は、反復ループの区間を破棄するだけで読み直していません）、\n出力を後から見返すときはそこを確認してください。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio never leaves this Mac.\nRecognition, auditing, proofreading and summarizing all run on device.\n\nThe same version appears at the top of every export.\nBecause the meaning of the audit record can change between versions\n(before 0.4.1, repetition loops were discarded but never re-read),\ncheck it when revisiting an old export."
+          }
+        }
+      }
+    },
+    "食い違いの判定": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Judging disagreements"
+          }
+        }
+      }
+    },
+    "高速": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fast"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -30,11 +30,14 @@ final class SessionSettingsTests: XCTestCase {
         XCTAssertFalse(c.adjudicateDisagreements)
     }
 
-    func testCorrectionIsOffWhenNoCorrector() {
+    /// 用意できていない LLM を「有効」として渡さない。
+    /// ただし**校正の段そのものは止めない**。決定論ルールと辞書は LLM 無しでも効く。
+    func testLanguageModelIsOffWhenNoCorrector() {
         var s = SessionSettings()
         s.enableCorrection = true
         let c = s.makeConfiguration(dictionary: .empty, hasCorrector: false, hasJudge: true)
-        XCTAssertFalse(c.enableCorrection)
+        XCTAssertFalse(c.useLanguageModel)
+        XCTAssertTrue(c.enableCorrection, "LLMが無いだけで決定論ルールと辞書まで止めてはいけない")
     }
 
     /// 全フィールドを既定値から変えた設定を作り、Configuration 側に反映されているか総当たりで見る。
@@ -55,7 +58,7 @@ final class SessionSettingsTests: XCTestCase {
 
         let c = s.makeConfiguration(dictionary: dict, hasCorrector: true, hasJudge: true)
         XCTAssertEqual(c.language, "en")
-        XCTAssertFalse(c.enableCorrection)
+        XCTAssertFalse(c.useLanguageModel)
         XCTAssertFalse(c.requireAgreement)
         XCTAssertFalse(c.autoRepair)
         XCTAssertEqual(c.auditPolicy.silenceDBFS, -60)
@@ -67,7 +70,6 @@ final class SessionSettingsTests: XCTestCase {
 
     func testRoundTripsThroughJSON() throws {
         var s = SessionSettings()
-        s.engineChoice = .apple
         s.silenceDBFS = -52
         s.crossCheckModelIDs = [ModelCatalog.sherpaModels[0].id]
         s.judgeDifferentReadings = false

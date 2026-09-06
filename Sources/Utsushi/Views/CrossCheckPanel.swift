@@ -94,9 +94,9 @@ struct CrossCheckPanel: View {
                 }
             }
             if report.disagreements.isEmpty {
-                Text("全エンジンの出力が一致しました。").font(.caption).foregroundStyle(.secondary)
+                Text("すべてのエンジンの出力が一致しました。").font(.caption).foregroundStyle(.secondary)
             } else if listed.isEmpty {
-                Text("中身の違いはありません。残りは整列・語尾・表記の違いです。")
+                Text("中身の違いはありません。残りは、整列・語尾・表記の違いです。")
                     .font(.caption).foregroundStyle(.secondary)
             }
             ForEach(listed) { d in

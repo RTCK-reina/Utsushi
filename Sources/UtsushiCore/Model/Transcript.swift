@@ -71,6 +71,38 @@ public enum CorrectionRule: String, Sendable, Codable {
     case languageModel   // LLM提案 + ゲート通過
 }
 
+/// どちらの押しかたで作ったか。
+///
+/// 設定でエンジンを切り替えるのをやめ、**開始ボタンそのものを2つにした**。
+/// 速さと確からしさは実行のたびに選びたいもので、設定に埋めると
+/// 「今どちらで走っているか」が画面から消える。
+public enum RunMode: String, Sendable, Codable, CaseIterable {
+    /// OS内蔵エンジンで一気に通す。57分の実データで30秒。
+    /// 照合も言語モデルも使わない。固有名詞は崩れる前提で読む。
+    case fast
+    /// whisper に設定どおりの照合を掛ける。実データで5〜10分。
+    case quality
+
+    public var displayName: String {
+        switch self {
+        case .fast:    return "高速"
+        case .quality: return "標準"
+        }
+    }
+
+    /// 書き出しに載せる注記。**出力だけを読む人が前提を知らないと危険**なので、
+    /// 速い方は弱点をそのまま書く。
+    public var note: String {
+        switch self {
+        case .fast:
+            return "OS内蔵エンジンで下書きした。照合も校正もしていない。"
+                + "固有名詞と数字は崩れやすく、辞書による認識の誘導も効いていない"
+        case .quality:
+            return "whisper で認識し、設定した照合を掛けた"
+        }
+    }
+}
+
 public struct TranscriptMeta: Sendable, Codable, Equatable {
     public var sourceURL: URL?
     public var sourceDuration: Double
@@ -78,11 +110,15 @@ public struct TranscriptMeta: Sendable, Codable, Equatable {
     public var modelName: String
     public var language: String
     public var createdAt: Date
+    /// どちらの押しかたで作ったか。古い書き出しには無いので Optional。
+    public var mode: RunMode?
     public init(sourceURL: URL?, sourceDuration: Double, engine: String,
-                modelName: String, language: String, createdAt: Date = Date()) {
+                modelName: String, language: String, createdAt: Date = Date(),
+                mode: RunMode? = nil) {
         self.sourceURL = sourceURL; self.sourceDuration = sourceDuration
         self.engine = engine; self.modelName = modelName
         self.language = language; self.createdAt = createdAt
+        self.mode = mode
     }
 }
 

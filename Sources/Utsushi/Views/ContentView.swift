@@ -50,9 +50,15 @@ struct ContentView: View {
                 SettingsLink { Image(systemName: "gearshape") }
                     .help("設定（⌘,）")
                 Button("別のファイル…") { model.presentOpenPanel() }
-                Button("文字起こし開始") { model.start() }
+                // 押しかたで構成が決まる。**設定を開かずに速さと確からしさを選べる**ようにした。
+                // 設定に埋めると「今どちらで走っているか」が画面から消える。
+                Button("高速") { model.start(mode: .fast) }
+                    .help("OS内蔵エンジンで下書き。照合も校正もしない。57分の録音で30秒ほど。"
+                          + "固有名詞は崩れやすい")
+                Button("標準") { model.start(mode: .quality) }
                     .keyboardShortcut(.return)
                     .buttonStyle(.borderedProminent)
+                    .help("whisper で認識し、設定した照合を掛ける。57分の録音で5〜10分")
             }
         }
         .padding(12)
@@ -64,12 +70,12 @@ struct ContentView: View {
             Image(systemName: "waveform.badge.magnifyingglass")
                 .font(.system(size: 46)).foregroundStyle(.secondary)
             Text("動画・音声ファイルをここにドロップ").font(.title3)
-            Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式")
+            Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています")
                 .font(.caption).foregroundStyle(.secondary)
             // ドロップだけだと「ドロップ以外の道が無い」ように見える。
             Button("ファイルを選ぶ…") { model.presentOpenPanel() }
                 .controlSize(.large)
-            Text("音声はこの Mac の中だけで処理される。外部への送信は無い。")
+            Text("音声はこの Mac の中だけで処理されます。外部に送信されることはありません。")
                 .font(.caption2).foregroundStyle(.secondary)
             capabilityBadges
             Spacer()
@@ -97,8 +103,8 @@ struct ContentView: View {
     /// という状態にしないために先に出す。
     private var pendingDownload: (count: Int, bytes: Int64) {
         var wanted: [ModelCatalog.Model] = []
-        if model.settings.engineChoice == .whisper,
-           let m = ModelCatalog.whisperModels.first(where: { $0.id == model.settings.whisperModelID }) {
+        // 「標準」で使う whisper は取得が要る。「高速」の OS内蔵エンジンは要らない。
+        if let m = ModelCatalog.whisperModels.first(where: { $0.id == model.settings.whisperModelID }) {
             wanted.append(m)
         }
         wanted += ModelCatalog.sherpaModels.filter { model.settings.crossCheckModelIDs.contains($0.id) }
@@ -109,7 +115,7 @@ struct ContentView: View {
     private var capabilityBadges: some View {
         VStack(spacing: 6) {
             HStack(spacing: 8) {
-                badge("エンジン", model.settings.engineChoice == .whisper ? "whisper.cpp" : "Apple", .blue)
+                badge("押しかた", model.runMode.displayName, model.runMode == .fast ? .orange : .blue)
                 if model.settings.crossCheckModelIDs.isEmpty {
                     badge("照合", "なし", .secondary)
                 } else {

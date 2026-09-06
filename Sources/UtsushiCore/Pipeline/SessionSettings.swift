@@ -8,26 +8,17 @@ import Foundation
 /// 渡し忘れが「この構造体にフィールドが無い」場合にしか起きないようにする。
 public struct SessionSettings: Sendable, Codable, Equatable {
 
-    public enum EngineChoice: String, Sendable, Codable, CaseIterable, Identifiable {
-        case whisper, apple
-        public var id: String { rawValue }
-        public var displayName: String {
-            switch self {
-            case .whisper: return "whisper.cpp（推奨・検証機能フル）"
-            case .apple:   return "Apple SpeechTranscriber（OS内蔵）"
-            }
-        }
-        public var note: String {
-            switch self {
-            case .whisper: return "モデルを初回にダウンロードする。尤度と無音確率が取れるので検証層が全機能で動く。"
-            case .apple:   return "モデル管理不要。ただし尤度が取れないため低信頼検出が無効になる。"
-            }
-        }
-    }
-
-    public var engineChoice: EngineChoice = .whisper
+    // 認識エンジンの選択は設定に持たない。**開始ボタン（RunMode）が決める。**
+    // 設定に埋めると「今どちらで走っているか」が実行画面から消える。
+    // 既存の settings.json に engineChoice が残っていても、余分なキーは無視される。
     public var whisperModelID: String = ModelCatalog.whisperModels[0].id
     public var language: String = "ja"
+    /// LLM による校正を行うか。切っても決定論ルールと辞書は適用される。
+    ///
+    /// 実測（11分素材・22セグメント）: 提案22件に対し採用は1件（読点の挿入）で、
+    /// 処理時間は 13秒 → 47秒。棄却8件のうち7件は「読みが変わる書き換え」で、
+    /// EditGate が止めている。読み手が LLM なら一般語の誤変換は文脈で戻るので、
+    /// 切る判断も成り立つ。
     public var enableCorrection: Bool = true
     public var requireAgreement: Bool = true
     public var autoRepair: Bool = true
@@ -70,11 +61,11 @@ public struct SessionSettings: Sendable, Codable, Equatable {
         if !ModelCatalog.whisperModels.contains(where: { $0.id == whisperModelID }) {
             whisperModelID = ModelCatalog.whisperModels[0].id
         }
-        crossCheckModelIDs.formIntersection(Set(ModelCatalog.sherpaModels.map(\.id)))
+        crossCheckModelIDs.formIntersection(Set(ModelCatalog.crossCheckCandidates.map(\.id)))
     }
 
     public var crossCheckModels: [ModelCatalog.Model] {
-        ModelCatalog.sherpaModels.filter { crossCheckModelIDs.contains($0.id) }
+        ModelCatalog.crossCheckCandidates.filter { crossCheckModelIDs.contains($0.id) }
     }
 
     public var whisperModel: ModelCatalog.Model {
@@ -92,12 +83,17 @@ public struct SessionSettings: Sendable, Codable, Equatable {
                                   hasCorrector: Bool,
                                   hasJudge: Bool,
                                   hasSummarizer: Bool = false,
-                                  hasPlausibilityChecker: Bool = false)
+                                  hasPlausibilityChecker: Bool = false,
+                                  mode: RunMode = .quality)
 -> TranscriptionPipeline.Configuration {
         var c = TranscriptionPipeline.Configuration()
+        c.mode = mode
         c.language = language
         c.dictionary = dictionary
-        c.enableCorrection = enableCorrection && hasCorrector
+        // 決定論ルールと辞書は LLM の有無に関係なく効かせる。
+        // ここを LLM と同じ条件にしていたせいで、校正を切ると辞書まで止まっていた。
+        c.enableCorrection = true
+        c.useLanguageModel = enableCorrection && hasCorrector
         c.requireAgreement = requireAgreement
         c.autoRepair = autoRepair
         c.auditPolicy.silenceDBFS = Float(silenceDBFS)
@@ -106,6 +102,19 @@ public struct SessionSettings: Sendable, Codable, Equatable {
         c.judgeDifferentReadings = judgeDifferentReadings
         c.enableSummary = enableSummary && hasSummarizer
         c.enablePlausibilityCheck = enablePlausibilityCheck && hasPlausibilityChecker
+        // 高速は「下書きを一気に見る」ための押しかた。時間のかかる段を全部落とす。
+        //
+        // ただし**無音ゲートと反復ループの検出は落とさない**。速い代わりに幻聴が
+        // 残る書き出しは、速さの意味がない。監査は音声だけを見るので安く済む。
+        // 辞書も残す。OS内蔵エンジンは認識時の語彙誘導に非対応だが、
+        // 認識後の誤記の置換は効く（半分だけ効く、という状態）。
+        if mode == .fast {
+            c.crossCheckEngines = []
+            c.adjudicateDisagreements = false
+            c.useLanguageModel = false
+            c.enableSummary = false
+            c.enablePlausibilityCheck = false
+        }
         c.summaryConfig.maxCharactersPerChunk = summaryChunkCharacters
         c.summaryConfig.maxPointsPerChunk = summaryPointsPerChunk
         c.summaryConfig.gatePolicy.rejectNewKanjiTerms = summaryStrictHeadlines

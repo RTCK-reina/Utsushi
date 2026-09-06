@@ -46,7 +46,7 @@ struct AuditPanel: View {
                 Text("文脈から浮いて見える語（\(flags.count)件）").font(.headline)
                 // 文字列を + で連結すると String になり、SwiftUI は Markdown を解釈しない
                 // （LocalizedStringKey にならない）。強調記法は使わずに1本の文字列で書く。
-                Text("区間ごとに最も文脈に合わない語を1つ選んでいる。誤りが無い区間でも1件は出るので、誤りの証拠ではなく確認の手掛かりとして見る。本文は書き換えていない。")
+                Text("区間ごとに、最も文脈に合わない語を1つ選んでいます。誤りのない区間でも1件は出るため、誤りの証拠ではなく確認の手掛かりとしてご覧ください。本文は書き換えていません。")
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach(flags) { f in
                     HStack(alignment: .top, spacing: 8) {
@@ -83,7 +83,7 @@ struct AuditPanel: View {
                 if items.isEmpty {
                     Text("なし").font(.caption).foregroundStyle(.secondary)
                 } else {
-                    Text("無音・反復として本文を捨てた区間。誤って捨てていないかはここで確認する。")
+                    Text("無音または反復として本文を捨てた区間です。誤って捨てていないかを、ここで確認できます。")
                         .font(.caption).foregroundStyle(.secondary)
                     ForEach(items) { seg in
                         HStack(alignment: .top, spacing: 8) {

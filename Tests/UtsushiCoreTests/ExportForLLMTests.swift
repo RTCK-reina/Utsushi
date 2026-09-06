@@ -234,4 +234,54 @@ final class ExportForLLMTests: XCTestCase {
         XCTAssertTrue(md.contains(original),
                       "本文が書き換えられている。候補を添えるだけで、本文には触らない")
     }
+
+    /// 書き出しにどのビルドの出力かが載ること。
+    ///
+    /// 検証記録の読み方は版で変わる（0.4.1 より前は反復ループの区間を破棄するだけで
+    /// 読み直していない）。出力だけを後から見た人が、それを判断できるようにする。
+    func testExportCarriesToolAndAuthor() throws {
+        let t = Transcript(meta: TranscriptMeta(sourceURL: URL(fileURLWithPath: "/tmp/a.m4a"),
+                                                sourceDuration: 10, engine: "test",
+                                                modelName: "test", language: "ja"),
+                           segments: [Segment(start: 0, end: 5, original: "本文")],
+                           audit: AuditReport(findings: [], stats: .init()))
+        let md = try String(data: Exporter().render(t, as: .markdown), encoding: .utf8) ?? ""
+        XCTAssertTrue(md.contains("作成ツール"), "書き出しにツール表記が無い")
+        XCTAssertTrue(md.contains(AppInfo.name), "アプリ名が載っていない")
+        XCTAssertTrue(md.contains(AppInfo.author), "作者名が載っていない")
+    }
+
+    /// 版が取れないときに嘘を書かないこと。取れないなら名前と作者だけになる。
+    func testCreditNeverInventsAVersion() {
+        let credit = AppInfo.credit
+        XCTAssertTrue(credit.hasPrefix(AppInfo.name))
+        XCTAssertTrue(credit.contains(AppInfo.author))
+        XCTAssertFalse(credit.contains("不明"), "版が取れないときに『不明』と書いている")
+    }
+
+    /// 「高速」で作った書き出しには、照合も校正もしていないと明記されること。
+    /// 出力だけを読む人（人でも LLM でも）が前提を知らないまま信用するのを防ぐ。
+    func testFastModeIsDeclaredInTheExport() throws {
+        let meta = TranscriptMeta(sourceURL: URL(fileURLWithPath: "/tmp/a.m4a"),
+                                  sourceDuration: 10, engine: "apple", modelName: "apple",
+                                  language: "ja", mode: .fast)
+        let t = Transcript(meta: meta, segments: [Segment(start: 0, end: 5, original: "本文")],
+                           audit: AuditReport(findings: [], stats: .init()))
+        let md = try String(data: Exporter().render(t, as: .markdown), encoding: .utf8) ?? ""
+        XCTAssertTrue(md.contains("押しかた"), "どちらで作ったかが書かれていない")
+        XCTAssertTrue(md.contains("高速"))
+        XCTAssertTrue(md.contains("照合も校正もしていない"), "弱点が明記されていない")
+    }
+
+    /// 古い書き出し（押しかたを持たない）でも壊れないこと。
+    func testExportWorksWithoutAMode() throws {
+        let meta = TranscriptMeta(sourceURL: nil, sourceDuration: 10, engine: "test",
+                                  modelName: "test", language: "ja")
+        let t = Transcript(meta: meta, segments: [Segment(start: 0, end: 5, original: "本文")],
+                           audit: AuditReport(findings: [], stats: .init()))
+        let md = try String(data: Exporter().render(t, as: .markdown), encoding: .utf8) ?? ""
+        XCTAssertFalse(md.contains("押しかた"))
+        XCTAssertTrue(md.contains("本文"))
+    }
+
 }
