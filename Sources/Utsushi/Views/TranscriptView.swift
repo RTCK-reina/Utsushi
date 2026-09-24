@@ -166,7 +166,9 @@ struct SpeakerBadge: View {
     }
 }
 
-/// バッジを押したときの話者操作メニュー。
+/// バッジを押したときの話者操作。`Menu` のカスタム label は macOS で
+/// 色・shape・背景を描かないため（Text がそのままボタンタイトルになる）、
+/// バッジはただの Button にして中身は popover で出す。
 struct SpeakerMenu: View {
     @EnvironmentObject var model: AppModel
     let speaker: Int
@@ -174,43 +176,79 @@ struct SpeakerMenu: View {
     let transcript: Transcript
     let isTurnChange: Bool
     let onRename: (Int) -> Void
-
-    private var others: [Int] { transcript.speakerIDs.filter { $0 != speaker } }
+    @State private var open = false
 
     var body: some View {
-        Menu {
-            Button("名前を変更…") { onRename(speaker) }
-            if !others.isEmpty {
-                Menu("他の話者に統合") {
-                    ForEach(others, id: \.self) { id in
-                        Button("\(transcript.speakerName(id))に統合") {
-                            model.mergeSpeakers(from: speaker, into: id)
-                        }
-                    }
-                }
-            }
-            Divider()
-            Menu("この発言を別の話者に") {
-                ForEach(others, id: \.self) { id in
-                    Button(transcript.speakerName(id)) {
-                        model.setSegmentSpeaker(segment.id, to: id)
-                    }
-                }
-                Button("新しい話者") {
-                    model.setSegmentSpeaker(segment.id, to: (transcript.speakerIDs.max() ?? 0) + 1)
-                }
-                Divider()
-                Button("話者なし") { model.setSegmentSpeaker(segment.id, to: nil) }
-            }
-        } label: {
+        Button { open.toggle() } label: {
             SpeakerBadge(speaker: speaker, isTurnChange: isTurnChange,
                          name: transcript.meta.speakerNames[speaker])
                 .frame(minWidth: 18, minHeight: 14)
                 .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
+        .buttonStyle(.plain)
+        .popover(isPresented: $open, arrowEdge: .bottom) {
+            SpeakerActions(speaker: speaker, segment: segment,
+                           transcript: transcript, onRename: onRename,
+                           dismiss: { open = false })
+        }
+    }
+}
+
+/// 話者チップと行バッジで共用するアクション一覧。
+/// `segment` を渡すと1区間の再割り当て項目が出る（話者全体の操作では隠す）。
+struct SpeakerActions: View {
+    @EnvironmentObject var model: AppModel
+    let speaker: Int
+    var segment: Segment? = nil
+    let transcript: Transcript
+    let onRename: (Int) -> Void
+    let dismiss: () -> Void
+
+    private var others: [Int] { transcript.speakerIDs.filter { $0 != speaker } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            action(Text("名前を変更…")) { onRename(speaker) }
+            if !others.isEmpty {
+                Divider().padding(.vertical, 3)
+                header(Text("他の話者に統合"))
+                ForEach(others, id: \.self) { id in
+                    action(Text("\(transcript.speakerName(id))に統合")) {
+                        model.mergeSpeakers(from: speaker, into: id)
+                    }
+                }
+            }
+            if let seg = segment {
+                Divider().padding(.vertical, 3)
+                header(Text("この発言を別の話者に"))
+                ForEach(others, id: \.self) { id in
+                    action(Text(verbatim: transcript.speakerName(id))) {
+                        model.setSegmentSpeaker(seg.id, to: id)
+                    }
+                }
+                action(Text("新しい話者")) {
+                    model.setSegmentSpeaker(seg.id, to: (transcript.speakerIDs.max() ?? 0) + 1)
+                }
+                Divider().padding(.vertical, 3)
+                action(Text("話者なし")) { model.setSegmentSpeaker(seg.id, to: nil) }
+            }
+        }
+        .padding(8)
+        .frame(minWidth: 180)
+    }
+
+    private func header(_ label: Text) -> some View {
+        label.font(.caption).foregroundStyle(.secondary)
+            .padding(.top, 2)
+    }
+
+    private func action(_ label: Text, _ body: @escaping () -> Void) -> some View {
+        Button { body(); dismiss() } label: {
+            label.frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 6).padding(.vertical, 3)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -233,35 +271,39 @@ struct SpeakerStrip: View {
         }
     }
 
-    @ViewBuilder
     private func speakerChip(id: Int, share: Double) -> some View {
-        let color = SpeakerBadge.color(for: id)
-        Menu {
-            Button("名前を変更…") { onRename(id) }
-            let others = transcript.speakerIDs.filter { $0 != id }
-            if !others.isEmpty {
-                Menu("他の話者に統合") {
-                    ForEach(others, id: \.self) { other in
-                        Button("\(transcript.speakerName(other))に統合") {
-                            model.mergeSpeakers(from: id, into: other)
-                        }
-                    }
+        SpeakerChip(id: id, share: share, transcript: transcript, onRename: onRename)
+    }
+
+    /// 色丸＋名前＋発話割合のチップ。Badge と同じく Menu では描画が化けるので
+    /// Button+popover にしてある。
+    private struct SpeakerChip: View {
+        @EnvironmentObject var model: AppModel
+        let id: Int
+        let share: Double
+        let transcript: Transcript
+        let onRename: (Int) -> Void
+        @State private var open = false
+
+        var body: some View {
+            let color = SpeakerBadge.color(for: id)
+            Button { open.toggle() } label: {
+                HStack(spacing: 5) {
+                    Circle().fill(color).frame(width: 8, height: 8)
+                    Text(transcript.speakerName(id)).font(.caption).lineLimit(1)
+                    Text(verbatim: "\(Int((share * 100).rounded()))%")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(color.opacity(0.14), in: Capsule())
+                .contentShape(Capsule())
             }
-        } label: {
-            HStack(spacing: 5) {
-                Circle().fill(color).frame(width: 8, height: 8)
-                Text(transcript.speakerName(id)).font(.caption).lineLimit(1)
-                Text(verbatim: "\(Int((share * 100).rounded()))%")
-                    .font(.caption2).foregroundStyle(.secondary)
+            .buttonStyle(.plain)
+            .popover(isPresented: $open, arrowEdge: .bottom) {
+                SpeakerActions(speaker: id, transcript: transcript,
+                               onRename: onRename, dismiss: { open = false })
             }
-            .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(color.opacity(0.14), in: Capsule())
-            .contentShape(Capsule())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
     }
 }
 
