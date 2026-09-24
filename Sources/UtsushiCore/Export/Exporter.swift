@@ -14,11 +14,11 @@ public enum ExportFormat: String, Sendable, CaseIterable, Identifiable {
     }
     public var displayName: String {
         switch self {
-        case .markdown: return "Markdown（タイムスタンプ付き）"
-        case .srt: return "SRT 字幕"
+        case .markdown: return String(localized: "Markdown（タイムスタンプ付き）")
+        case .srt: return String(localized: "SRT 字幕")
         case .vtt: return "WebVTT"
-        case .plainText: return "プレーンテキスト"
-        case .json: return "JSON（監査記録込み）"
+        case .plainText: return String(localized: "プレーンテキスト")
+        case .json: return String(localized: "JSON（監査記録込み）")
         }
     }
 }

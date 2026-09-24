@@ -96,7 +96,7 @@ struct AuditPanel: View {
                                 .strikethrough()
                                 .textSelection(.enabled)
                             Spacer(minLength: 0)
-                            Text(seg.flags.contains(.repetitionLoop) ? "反復" : "無音")
+                            Text(LocalizedStringKey(seg.flags.contains(.repetitionLoop) ? "反復" : "無音"))
                                 .font(.caption2)
                                 .padding(.horizontal, 5).padding(.vertical, 1)
                                 .background(Color.red.opacity(0.15), in: Capsule())
@@ -106,8 +106,9 @@ struct AuditPanel: View {
                 if !gaps.isEmpty {
                     Text("発話の無い区間（\(gaps.count)件）").font(.subheadline).padding(.top, 6)
                     ForEach(Array(gaps.enumerated()), id: \.offset) { _, g in
-                        Text("\(Exporter.hms(g.lowerBound)) – \(Exporter.hms(g.upperBound))"
-                             + "（\(Int((g.upperBound - g.lowerBound) / 60))分）")
+                        // 端数は切り上げる。35秒の穴を「0分」と書くと誤解される。
+                        // 連結すると翻訳が引かれないので1つのリテラルに保つ
+                        Text("\(Exporter.hms(g.lowerBound)) – \(Exporter.hms(g.upperBound))（\(Int(((g.upperBound - g.lowerBound) / 60).rounded(.up)))分）")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
@@ -144,7 +145,7 @@ struct AuditPanel: View {
                     Image(systemName: icon(f.action)).foregroundStyle(color(f.action))
                         .frame(width: 16)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(Exporter.hms(f.start)) – \(Exporter.hms(f.end))　\(Exporter.label(f.kind))")
+                        Text("\(Exporter.hms(f.start)) – \(Exporter.hms(f.end))　\(Self.kindLabel(f.kind))")
                             .font(.system(.caption, design: .monospaced))
                         Text(f.detail).font(.caption).foregroundStyle(.secondary)
                     }
@@ -163,7 +164,7 @@ struct AuditPanel: View {
         VStack(alignment: .leading, spacing: 3) {
             ForEach(rows, id: \.0) { r in
                 HStack {
-                    Text(r.0).font(.caption).foregroundStyle(.secondary)
+                    Text(LocalizedStringKey(r.0)).font(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Text(r.1).font(.system(.caption, design: .monospaced))
                 }
@@ -191,21 +192,33 @@ struct AuditPanel: View {
     }
     private func actionLabel(_ a: AuditReport.Finding.Action) -> String {
         switch a {
-        case .suppressed: return "破棄"
-        case .repaired: return "再認識で修復"
-        case .marked: return "印付け"
-        case .unresolved: return "未解決"
+        case .suppressed: return String(localized: "破棄")
+        case .repaired: return String(localized: "再認識で修復")
+        case .marked: return String(localized: "印付け")
+        case .unresolved: return String(localized: "未解決")
+        }
+    }
+    /// 書き出し側の `Exporter.label` と同じ区分を、画面の言語で出す。
+    /// 書き出しは作った時点の文書として残るので、ここだけ表示言語に追従させる。
+    static func kindLabel(_ k: AuditReport.Finding.Kind) -> String {
+        switch k {
+        case .silentHallucination: return String(localized: "無音区間の幻聴")
+        case .repetitionLoop: return String(localized: "反復ループ")
+        case .densityAnomaly: return String(localized: "取りこぼし疑い")
+        case .lowConfidence: return String(localized: "低信頼")
+        case .coverageGap: return String(localized: "カバレッジの穴")
+        case .segmentOverrun: return String(localized: "尺が発話より長い")
         }
     }
     static func rejectionLabel(_ raw: String) -> String {
         switch raw {
-        case "readingChanged": return "読みが変わる書き換え"
-        case "lengthOutOfRange": return "長さが許容外"
-        case "editDistanceTooLarge": return "変更量が大きすぎる"
-        case "readingUnavailable": return "読みを取得できず検証不能"
-        case "emptyResult": return "空文字にされた"
-        case "newLatinToken": return "原文に無い英数字が出現"
-        case "disagreement": return "2回の提案が不一致"
+        case "readingChanged": return String(localized: "読みが変わる書き換え")
+        case "lengthOutOfRange": return String(localized: "長さが許容外")
+        case "editDistanceTooLarge": return String(localized: "変更量が大きすぎる")
+        case "readingUnavailable": return String(localized: "読みを取得できず検証不能")
+        case "emptyResult": return String(localized: "空文字にされた")
+        case "newLatinToken": return String(localized: "原文に無い英数字が出現")
+        case "disagreement": return String(localized: "2回の提案が不一致")
         default: return raw
         }
     }

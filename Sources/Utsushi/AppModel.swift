@@ -25,7 +25,7 @@ final class AppModel: ObservableObject {
     /// 変更のたびに保存し、次回起動で選び直さずに済むようにする。
     @Published var settings = SessionSettings() { didSet { scheduleSettingsSave() } }
     @Published var dictionary = UserDictionary.empty
-    @Published var correctionAvailability: CorrectionAvailability = .unavailable("未確認")
+    @Published var correctionAvailability: CorrectionAvailability = .unavailable(String(localized: "未確認"))
 
     private var pipeline: TranscriptionPipeline?
     private var task: Task<Void, Never>?
@@ -90,6 +90,7 @@ final class AppModel: ObservableObject {
     func accept(url: URL) {
         sourceURL = url
         transcript = nil
+        correctionOutcome = nil
         errorMessage = nil
         // ヘッダのタイトルが既にファイル名なので、ここは別の情報を出す。
         // 尺と音声トラックの有無を先に見せておくと、開始前に「読めるファイルか」が分かる。
@@ -111,7 +112,7 @@ final class AppModel: ObservableObject {
             guard !tracks.isEmpty else {
                 return String(localized: "音声トラックが無い（\(sizeText)）")
             }
-            return "\(Exporter.hms(duration))・\(sizeText)・音声トラック \(tracks.count)"
+            return String(localized: "\(Exporter.hms(duration))・\(sizeText)・音声トラック \(tracks.count)")
         } catch {
             return String(localized: "読み込めない: \(error.localizedDescription)")
         }
@@ -252,7 +253,7 @@ final class AppModel: ObservableObject {
             let data = try Exporter().render(t, as: format)
             try data.write(to: url)
         } catch {
-            errorMessage = "書き出しに失敗: \(error.localizedDescription)"
+            errorMessage = String(localized: "書き出しに失敗: \(error.localizedDescription)")
         }
     }
 
@@ -261,7 +262,7 @@ final class AppModel: ObservableObject {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.prompt = "このフォルダに書き出す"
+        panel.prompt = String(localized: "このフォルダに書き出す")
         guard panel.runModal() == .OK, let dir = panel.url else { return }
         let base = sourceURL?.deletingPathExtension().lastPathComponent ?? "transcript"
         do {
@@ -270,7 +271,7 @@ final class AppModel: ObservableObject {
                 try data.write(to: dir.appendingPathComponent("\(base)_文字起こし.\(f.fileExtension)"))
             }
         } catch {
-            errorMessage = "書き出しに失敗: \(error.localizedDescription)"
+            errorMessage = String(localized: "書き出しに失敗: \(error.localizedDescription)")
         }
     }
 

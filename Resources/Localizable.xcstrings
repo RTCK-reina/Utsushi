@@ -381,7 +381,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Every segment is unchanged from the original."
+            "value": "Every segment is still the original."
           }
         }
       }
@@ -667,7 +667,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No substantive differences. The rest are alignment, inflection, and notation."
+            "value": "No substantive differences. The rest are alignment, inflection, or notation differences."
           }
         }
       }
@@ -1834,6 +1834,875 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fast"
+          }
+        }
+      }
+    },
+    "本文": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcript"
+          }
+        }
+      }
+    },
+    "校正差分": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corrections"
+          }
+        }
+      }
+    },
+    "検証記録": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audit log"
+          }
+        }
+      }
+    },
+    "話題": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topic"
+          }
+        }
+      }
+    },
+    "決定": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decision"
+          }
+        }
+      }
+    },
+    "やること": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action item"
+          }
+        }
+      }
+    },
+    "数値・日程": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numbers & dates"
+          }
+        }
+      }
+    },
+    "質疑": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Q&A"
+          }
+        }
+      }
+    },
+    "書き出し": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
+          }
+        }
+      }
+    },
+    "Markdown（タイムスタンプ付き）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markdown (with timestamps)"
+          }
+        }
+      }
+    },
+    "SRT 字幕": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SRT subtitles"
+          }
+        }
+      }
+    },
+    "プレーンテキスト": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plain text"
+          }
+        }
+      }
+    },
+    "JSON（監査記録込み）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JSON (with audit record)"
+          }
+        }
+      }
+    },
+    "読み一致": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matching reading"
+          }
+        }
+      }
+    },
+    "読み不一致": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Different reading"
+          }
+        }
+      }
+    },
+    "表記だけ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notation only"
+          }
+        }
+      }
+    },
+    "整列のずれ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alignment shift"
+          }
+        }
+      }
+    },
+    "語尾のゆれ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inflection variation"
+          }
+        }
+      }
+    },
+    "食い違い（全件）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disagreements (all)"
+          }
+        }
+      }
+    },
+    "　中身の違い": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "　Substantive"
+          }
+        }
+      }
+    },
+    "　整列のずれ（本文は両方にある）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "　Alignment shift (present on both sides)"
+          }
+        }
+      }
+    },
+    "　語尾・助詞のゆれ（と / って）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "　Inflection/particle variation (と / って)"
+          }
+        }
+      }
+    },
+    "　表記だけの違い（三月 / 3月）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "　Notation only (三月 / 3月)"
+          }
+        }
+      }
+    },
+    "判定できた": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Judged"
+          }
+        }
+      }
+    },
+    "　うち読みが一致（同音異義語）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "　of which readings match (homophones)"
+          }
+        }
+      }
+    },
+    "　うち読みが不一致（音響情報を無視した推定）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "　of which readings differ (text-only guess)"
+          }
+        }
+      }
+    },
+    "人の目が要る": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs human review"
+          }
+        }
+      }
+    },
+    "2回の判定が割れた": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Judgements disagreed"
+          }
+        }
+      }
+    },
+    "判定エラー": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Judgement errors"
+          }
+        }
+      }
+    },
+    "（なし）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(none)"
+          }
+        }
+      }
+    },
+    "セグメント数": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segments"
+          }
+        }
+      }
+    },
+    "本文を破棄した区間": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discarded spans"
+          }
+        }
+      }
+    },
+    "再認識で差し替え": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replaced by re-recognition"
+          }
+        }
+      }
+    },
+    "発話カバー率": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speech coverage"
+          }
+        }
+      }
+    },
+    "　発話のある時間": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "　Voiced"
+          }
+        }
+      }
+    },
+    "　無音の時間": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "　Silent"
+          }
+        }
+      }
+    },
+    "最大反復連続数": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Longest repetition run"
+          }
+        }
+      }
+    },
+    "辞書による置換": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictionary replacements"
+          }
+        }
+      }
+    },
+    "決定論ルール適用": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deterministic rules applied"
+          }
+        }
+      }
+    },
+    "LLM提案": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LLM suggestions"
+          }
+        }
+      }
+    },
+    "ゲート通過して採用": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepted through gate"
+          }
+        }
+      }
+    },
+    "エンジンエラー": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine errors"
+          }
+        }
+      }
+    },
+    "検出項目（%lld件）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Findings (%lld)"
+          }
+        }
+      }
+    },
+    "無音区間の幻聴": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hallucination in silence"
+          }
+        }
+      }
+    },
+    "反復ループ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repetition loop"
+          }
+        }
+      }
+    },
+    "取りこぼし疑い": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suspected dropout"
+          }
+        }
+      }
+    },
+    "低信頼": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low confidence"
+          }
+        }
+      }
+    },
+    "カバレッジの穴": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coverage gap"
+          }
+        }
+      }
+    },
+    "尺が発話より長い": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overruns the speech"
+          }
+        }
+      }
+    },
+    "破棄": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discarded"
+          }
+        }
+      }
+    },
+    "再認識で修復": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repaired by re-recognition"
+          }
+        }
+      }
+    },
+    "印付け": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marked"
+          }
+        }
+      }
+    },
+    "未解決": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unresolved"
+          }
+        }
+      }
+    },
+    "反復": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repetition"
+          }
+        }
+      }
+    },
+    "無音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silence"
+          }
+        }
+      }
+    },
+    "読みが変わる書き換え": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes the reading"
+          }
+        }
+      }
+    },
+    "長さが許容外": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Length out of range"
+          }
+        }
+      }
+    },
+    "変更量が大きすぎる": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too much change"
+          }
+        }
+      }
+    },
+    "読みを取得できず検証不能": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading unavailable — cannot verify"
+          }
+        }
+      }
+    },
+    "空文字にされた": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emptied the text"
+          }
+        }
+      }
+    },
+    "原文に無い英数字が出現": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduces a new Latin token"
+          }
+        }
+      }
+    },
+    "2回の提案が不一致": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Two proposals disagreed"
+          }
+        }
+      }
+    },
+    "%@ – %@（%lld分）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ – %@ (%lld min)"
+          }
+        }
+      }
+    },
+    "フィラー除去": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filler removal"
+          }
+        }
+      }
+    },
+    "表記統一": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notation unification"
+          }
+        }
+      }
+    },
+    "LLM（ゲート通過）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LLM (passed gate)"
+          }
+        }
+      }
+    },
+    "校正による変更はありません": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No proofreading changes"
+          }
+        }
+      }
+    },
+    "%@・%@・音声トラック %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ · %lld audio track(s)"
+          }
+        }
+      }
+    },
+    "書き出しに失敗: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export failed: %@"
+          }
+        }
+      }
+    },
+    "このフォルダに書き出す": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export to this folder"
+          }
+        }
+      }
+    },
+    "未確認": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not checked yet"
+          }
+        }
+      }
+    },
+    "初回実行時にダウンロード": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads on first run"
+          }
+        }
+      }
+    },
+    "「標準」には初回だけ %@ のダウンロードが入る（モデル %lld 件）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standard downloads %@ once (%lld models)"
+          }
+        }
+      }
+    },
+    "実行のたびに出力が変わる（同じ音声・同じ設定で 753 / 758 / 759 文字）。同一インスタンス内なら一致するが、プロセスをまたぐと一致しない。temperature=0・seed 固定・スレッド1でも消えず、原因は未特定。照合の相手にすると「前回は決着した箇所が今回は未決」が起き、CER を測っても再現しない。速度も 6.7 倍速と他の 5〜10 分の1。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Output changes every run (753 / 758 / 759 characters for the same audio and settings). Runs match within one instance but not across processes; temperature=0, a fixed seed, and one thread do not remove it and the cause is unknown. Used as a cross-checker it can leave previously decided spots undecided, and CER measurements do not reproduce. It is also 6.7x slower than the others."
+          }
+        }
+      }
+    },
+    "要点 %lld件・モデルの見出しが通った割合 %lld%%": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Points: %lld · %lld%% of model headlines passed"
+          }
+        }
+      }
+    },
+    "・見出し棄却 %lld件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · %lld headlines rejected"
+          }
+        }
+      }
+    },
+    "・存在しない行の参照 %lld件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · %lld missing-line references"
+          }
+        }
+      }
+    },
+    "・要約に失敗した塊 %lld件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · %lld chunks failed"
+          }
+        }
+      }
+    },
+    "OS内蔵エンジンで下書き。照合も校正もしない。57分の録音で30秒ほど。固有名詞は崩れやすい": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drafts with the built-in engine only — no cross-check or correction. About 30 s for a 57-minute recording. Proper nouns are fragile."
           }
         }
       }

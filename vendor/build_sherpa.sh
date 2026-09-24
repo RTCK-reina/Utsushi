@@ -6,7 +6,8 @@
 # pin しているものの、上流がそのリリースアセットを差し替えたためハッシュが合わず
 # configure に失敗する。v1.13.4 は 1.27.0 を pin していて通る。
 set -u
-export PATH=/opt/homebrew/bin:/usr/bin:/bin
+# /usr/sbin も必要。ここだけ絞ると sysctl などが見つからず -j の引数が空になる
+export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export DEVELOPER_DIR=${DEVELOPER_DIR:-$(ls -d /Applications/Xcode*.app 2>/dev/null | head -1)/Contents/Developer}
 # スクリプト自身の位置からリポジトリ直下を割り出す（環境に依存させない）
 P="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

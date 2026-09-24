@@ -51,11 +51,11 @@ struct SummaryPanel: View {
             let rejected = summary.stats.rejectedHeadlineCount
             let invalid = summary.stats.invalidReferenceCount
             let failed = summary.stats.failedChunkCount
-            Text("要点 \(summary.points.count)件・"
-                 + "モデルの見出しが通った割合 \(Int(summary.modelHeadlineRatio * 100))%"
-                 + (rejected > 0 ? "・見出し棄却 \(rejected)件" : "")
-                 + (invalid > 0 ? "・存在しない行の参照 \(invalid)件" : "")
-                 + (failed > 0 ? "・要約に失敗した塊 \(failed)件" : ""))
+            // 連結すると String になり翻訳が引かれない。各部分を先に訳してから足す。
+            Text(String(localized: "要点 \(summary.points.count)件・モデルの見出しが通った割合 \(Int(summary.modelHeadlineRatio * 100))%")
+                 + (rejected > 0 ? String(localized: "・見出し棄却 \(rejected)件") : "")
+                 + (invalid > 0 ? String(localized: "・存在しない行の参照 \(invalid)件") : "")
+                 + (failed > 0 ? String(localized: "・要約に失敗した塊 \(failed)件") : ""))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 14)

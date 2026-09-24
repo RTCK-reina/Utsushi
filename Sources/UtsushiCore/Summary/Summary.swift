@@ -52,11 +52,11 @@ public struct Summary: Sendable, Codable, Equatable {
 
         public var displayName: String {
             switch self {
-            case .topic: return "話題"
-            case .decision: return "決定"
-            case .action: return "やること"
-            case .number: return "数値・日程"
-            case .question: return "質疑"
+            case .topic: return String(localized: "話題")
+            case .decision: return String(localized: "決定")
+            case .action: return String(localized: "やること")
+            case .number: return String(localized: "数値・日程")
+            case .question: return String(localized: "質疑")
             }
         }
     }

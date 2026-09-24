@@ -29,7 +29,7 @@ final class EngineComparisonTests: XCTestCase {
             do {
                 let t0 = Date()
                 _ = try await session.respond(to: "次の文章の主題を1文で:\n\(text)",
-                                              options: GenerationOptions(samplingMode: .greedy,
+                                              options: GenerationOptions(sampling: .greedy,
                                                                          maximumResponseTokens: 60))
                 print("  \(text.count) 文字 → OK (\(String(format: "%.1f", Date().timeIntervalSince(t0)))s)")
             } catch {

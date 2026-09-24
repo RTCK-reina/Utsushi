@@ -138,7 +138,8 @@ struct ContentView: View {
             let pending = pendingDownload
             if pending.bytes > 0 {
                 // 連結すると翻訳が引かれない。1つの文字列リテラルに保つこと。
-                Label("初回だけ \(ModelCatalog.sizeText(pending.bytes)) のダウンロードが入る（モデル \(pending.count) 件）",
+                // 「高速」はモデルの取得が要らないので、落ちるのは「標準」だけと明記する。
+                Label("「標準」には初回だけ \(ModelCatalog.sizeText(pending.bytes)) のダウンロードが入る（モデル \(pending.count) 件）",
                       systemImage: "arrow.down.circle")
                     .font(.caption).foregroundStyle(.orange)
             }

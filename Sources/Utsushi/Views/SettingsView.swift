@@ -117,7 +117,7 @@ struct SettingsView: View {
                     HStack {
                         Text(m.note).font(.caption).foregroundStyle(.secondary)
                         Spacer()
-                        Text(ModelCatalog.isInstalled(m) ? "導入済み" : "初回実行時にダウンロード")
+                        Text(LocalizedStringKey(ModelCatalog.isInstalled(m) ? "導入済み" : "初回実行時にダウンロード"))
                             .font(.caption2)
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background((ModelCatalog.isInstalled(m) ? Color.green : Color.orange).opacity(0.15),

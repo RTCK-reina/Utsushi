@@ -2,7 +2,8 @@
 # whisper.cpp を取得して macOS arm64 用の静的ライブラリを作る。
 # 静的リンクにしているのは、Hardened Runtime 下で未署名 dylib を読ませないため。
 set -euo pipefail
-export PATH=/opt/homebrew/bin:/usr/bin:/bin
+# /usr/sbin も必要。ここだけ絞ると sysctl などが見つからず -j の引数が空になる
+export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export DEVELOPER_DIR=${DEVELOPER_DIR:-$(ls -d /Applications/Xcode*.app 2>/dev/null | head -1)/Contents/Developer}
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

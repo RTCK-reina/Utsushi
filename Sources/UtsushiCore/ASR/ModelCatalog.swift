@@ -90,8 +90,6 @@ public struct ModelCatalog: Sendable {
     ]
 
     /// 照合用の独立エンジン。whisper とアーキテクチャが異なるので誤りが相関しにくい。
-    private static let BASE_URL = "https://huggingface.co/thieunv/sherpa-onnx-qwen3-asr-1.7B-int8/resolve/main/"
-
     public static let sherpaModels: [Model] = [
         Model(id: "sherpa-zipformer-ja-reazonspeech",
               displayName: "ReazonSpeech k2-v2 (zipformer int8)",
@@ -136,13 +134,7 @@ public struct ModelCatalog: Sendable {
               approximateBytes: 940_000_000,
               note: String(localized: "LLMデコーダ型。文脈から補うので、音響に無い語を書くことがある"),
               attribution: "This product includes Qwen3-ASR by Alibaba, licensed under Apache-2.0.",
-              caveat: """
-                      実行のたびに出力が変わる（同じ音声・同じ設定で 753 / 758 / 759 文字）。\
-                      同一インスタンス内なら一致するが、プロセスをまたぐと一致しない。\
-                      temperature=0・seed 固定・スレッド1でも消えず、原因は未特定。\
-                      照合の相手にすると「前回は決着した箇所が今回は未決」が起き、\
-                      CER を測っても再現しない。速度も 6.7 倍速と他の 5〜10 分の1。
-                      """),
+              caveat: String(localized: "実行のたびに出力が変わる（同じ音声・同じ設定で 753 / 758 / 759 文字）。同一インスタンス内なら一致するが、プロセスをまたぐと一致しない。temperature=0・seed 固定・スレッド1でも消えず、原因は未特定。照合の相手にすると「前回は決着した箇所が今回は未決」が起き、CER を測っても再現しない。速度も 6.7 倍速と他の 5〜10 分の1。")),
         // 1.7B（非公式ビルド）は外した。
         // 公式リリースに無いので第三者が書き出した ONNX を取る形になり、
         // しかも 0.6B と同じ構造なので**同じ非決定性を引き継ぐ見込みが高い**。

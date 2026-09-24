@@ -18,7 +18,7 @@ struct TranscriptView: View {
     var body: some View {
         VStack(spacing: 0) {
             Picker("", selection: $tab) {
-                ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(Tab.allCases) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -123,10 +123,10 @@ struct CorrectionRow: View {
 
     private var ruleLabel: String {
         switch segment.correction?.rule {
-        case .dictionary: return "辞書"
-        case .fillerRemoval: return "フィラー除去"
-        case .notation: return "表記統一"
-        case .languageModel: return "LLM（ゲート通過）"
+        case .dictionary: return String(localized: "辞書")
+        case .fillerRemoval: return String(localized: "フィラー除去")
+        case .notation: return String(localized: "表記統一")
+        case .languageModel: return String(localized: "LLM（ゲート通過）")
         case .none: return "-"
         }
     }
