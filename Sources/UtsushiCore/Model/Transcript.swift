@@ -100,6 +100,24 @@ public enum RunMode: String, Sendable, Codable, CaseIterable {
             return String(localized: "whisper で認識し、設定した照合を掛けた")
         }
     }
+
+    /// 書き出し文書に入れる名。文書は日本語で組み立てるので画面言語には追従させない。
+    public var documentName: String {
+        switch self {
+        case .fast:    return "高速"
+        case .quality: return "標準"
+        }
+    }
+
+    /// `note` の書き出し用。画面言語ではなく文書の言語（日本語）で返す。
+    public var documentNote: String {
+        switch self {
+        case .fast:
+            return "OS内蔵エンジンで下書きした。照合も校正もしていない。固有名詞と数字は崩れやすく、辞書による認識の誘導も効いていない"
+        case .quality:
+            return "whisper で認識し、設定した照合を掛けた"
+        }
+    }
 }
 
 public struct TranscriptMeta: Sendable, Codable, Equatable {

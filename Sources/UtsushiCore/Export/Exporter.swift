@@ -66,7 +66,7 @@ public struct Exporter: Sendable {
         // どの押しかたで作ったかを本文と同じ場所に置く。
         // 「高速」は照合も校正もしていないので、**その前提を知らずに読むと危ない**。
         if let mode = t.meta.mode {
-            out.append("| 押しかた | \(mode.displayName)（\(mode.note)）|")
+            out.append("| 押しかた | \(mode.documentName)（\(mode.documentNote)）|")
         }
         out.append("")
 
@@ -104,7 +104,7 @@ public struct Exporter: Sendable {
             out.append("> 引用に無い数値・英数字・カタカナ語を含む見出しは機械的に落としてある。\n")
             for p in t.summary.points {
                 let tag = p.headlineSource == .extracted ? "（見出しはモデル案が棄却されたため原文から抜粋）" : ""
-                out.append("- **[\(p.kind.displayName)]** `\(Self.hms(p.start))` \(p.headline)\(tag)")
+                out.append("- **[\(p.kind.documentName)]** `\(Self.hms(p.start))` \(p.headline)\(tag)")
                 for q in p.quotes { out.append("  > \(q)") }
             }
             out.append("")

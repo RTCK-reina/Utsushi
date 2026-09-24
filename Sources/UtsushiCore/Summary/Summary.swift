@@ -59,6 +59,16 @@ public struct Summary: Sendable, Codable, Equatable {
             case .question: return String(localized: "質疑")
             }
         }
+        /// 書き出し文書に入れる名。文書は日本語で組み立てるので画面言語には追従させない。
+        public var documentName: String {
+            switch self {
+            case .topic: return "話題"
+            case .decision: return "決定"
+            case .action: return "やること"
+            case .number: return "数値・日程"
+            case .question: return "質疑"
+            }
+        }
     }
 
     public var points: [Point] = []
