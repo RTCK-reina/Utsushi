@@ -1453,6 +1453,17 @@
         }
       }
     },
+    "英語中心の評価で高精度（Diarization-Bench 1位）だが、日本語での実測はまだ浅い": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High accuracy in English-focused benchmarks (No. 1 on Diarization-Bench), but little measured data for Japanese yet"
+          }
+        }
+      }
+    },
     "著作権": {
       "extractionState": "manual",
       "localizations": {
@@ -1882,7 +1893,7 @@
         }
       }
     },
-    "話者を分離中 %lld%": {
+    "話者を分離中 %lld%%": {
       "extractionState": "manual",
       "localizations": {
         "en": {
