@@ -32,6 +32,8 @@ final class AppModel: ObservableObject {
     /// 実行をまたいで使い回す。モデルの再読み込み（10秒前後）を避けるためと、
     /// 終了時に確実に解放するために参照を持ち続ける。
     private var whisperEngine: WhisperEngine?
+    /// 話者分離もモデルを読み直さず使い回す。生成モデルは持たないので軽い。
+    private var diarizer = DiarizationEngine()
     /// 通知の解除は行わない。AppModel はアプリと同じ寿命なので、
     /// 解除するタイミングが存在しない（deinit は actor 隔離の外なので触れない）。
     private var terminationObserver: NSObjectProtocol?
@@ -66,6 +68,7 @@ final class AppModel: ObservableObject {
                 self?.settingsSaveTask?.cancel()
                 self?.saveSettings()
                 self?.whisperEngine?.shutdown()
+                self?.diarizer.shutdown()
             }
         }
     }
@@ -175,7 +178,8 @@ final class AppModel: ObservableObject {
                                                 mode: mode)
         let p = TranscriptionPipeline(engine: engine, corrector: corrector, judge: judge,
                                       summaryEngine: summarizer,
-                                      plausibilityChecker: plausibility, config: config)
+                                      plausibilityChecker: plausibility,
+                                      diarizer: diarizer, config: config)
         pipeline = p
 
         // AppModel は @MainActor なので、ここで作る Task は MainActor 隔離を引き継ぐ。

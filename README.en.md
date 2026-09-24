@@ -160,7 +160,7 @@ This yields 15 annotated lines for an 11-minute clip, catching things like éƒ¨é•
 The document opens with a section on how to read it, declaring the symbols and the **known weaknesses** up front:
 
 - Homophones and proper nouns get confused. Treat any word that does not make sense as a possible misrecognition.
-- **Speakers are not separated.** A conversation between several people reads as one continuous speaker.
+- Speaker numbers are an estimate from audio alone (Nemotron 3 Diarization). It cannot tell who the person is, and short utterances or similar voices are easily confused.
 - Do not treat numbers, proper nouns or dates as settled on the strength of this document alone.
 
 The audit section is explicitly marked as not being spoken content. Without that, its wording gets quoted as if someone had said it.
@@ -299,6 +299,7 @@ Conversion from settings to pipeline configuration passes through the single fun
 brew install cmake xcodegen
 script/bootstrap.sh          # fetch and build whisper.cpp, generate the Xcode project
 vendor/build_sherpa.sh       # build the cross-check engines (sherpa-onnx v1.13.4, static)
+vendor/build_nemo_speech.sh  # build the speaker diarizer (NeMo-Speech.cpp, static, CPU)
 script/build_and_run.sh verify
 script/build_and_run.sh test
 ```

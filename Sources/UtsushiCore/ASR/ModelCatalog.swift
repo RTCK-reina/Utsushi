@@ -64,6 +64,7 @@ public struct ModelCatalog: Sendable {
         case sherpaSenseVoice   // 非自己回帰（作文しない）
         case appleSpeechAnalyzer // OS内蔵。ダウンロード不要
         case sileroVAD
+        case nemoSpeechDiar    // NeMo-Speech.cpp（Nemotron 3 Diarization）
     }
 
     // MARK: - カタログ
@@ -195,6 +196,22 @@ public struct ModelCatalog: Sendable {
         approximateBytes: 885_098,
         note: String(localized: "無音区間の切り出しに使う"))
 
+    /// 話者分離モデル。Nemotron 3 Diarization の公式 q8_0 GGUF をそのまま使う。
+    /// VoiceArena Diarization-Bench トップ（DER 14.72%）で、最大8話者・
+    /// オーバーラップ（同時発話）にも対応する。非ゲーテッドの単一ファイルなので
+    /// 単体ダウンロードで入る。実行は NeMo-Speech.cpp（Apache-2.0）の静的ライブラリで、
+    /// whisper とは別系統の ggml を内製している。
+    public static let diarModel = Model(
+        id: "nvidia-nemotron-3-diarization", displayName: "Nemotron 3 Diarization (q8_0)",
+        engine: .nemoSpeechDiar,
+        items: [Item(role: "model", fileName: "Nemotron-3-Diarization.q8_0.gguf",
+                     url: URL(string: "https://huggingface.co/nvidia/Nemotron-3-Diarization/resolve/main/Nemotron-3-Diarization.q8_0.gguf")!,
+                     sizeBytes: 107_012_128)],
+        approximateBytes: 107_012_128,
+        note: String(localized: "話者の区別を付ける。最大8人・同時発話にも対応（CPU動作）"),
+        attribution: "This product uses NVIDIA Nemotron-3-Diarization, licensed under the Open Model Definition (OpenMDW-1.1).",
+        caveat: String(localized: "英語中心の評価で高精度（Diarization-Bench 1位）だが、日本語での実測はまだ浅い"))
+
     /// OS内蔵の SpeechTranscriber。**ダウンロードするファイルが無いので `items` は空**。
     /// 言語モデルの取得は `SpeechAnalyzerEngine.prepare` が OS の API 経由で行う。
     ///
@@ -214,7 +231,7 @@ public struct ModelCatalog: Sendable {
 
     /// **ダウンロード定義を持つ**モデル。取得・容量計算・配布定義の検証はこれを使う。
     /// OS内蔵の `appleModel` は含まない（落とすファイルが無いため）。
-    public static var allModels: [Model] { whisperModels + sherpaModels + [vadModel] }
+    public static var allModels: [Model] { whisperModels + sherpaModels + [vadModel, diarModel] }
 
     /// 照合に選べるエンジン。系統が違うものだけを並べる。
     public static var crossCheckCandidates: [Model] { sherpaModels + [appleModel] }

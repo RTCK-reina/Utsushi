@@ -51,10 +51,11 @@ final class SenseVoiceTests: XCTestCase {
         engine.shutdown()
 
         let text = segs.map(\.text).joined()
-        print("[sense-voice] 準備 " + String(format: "%.1f", prepared) + "秒 / 認識 "
-              + String(format: "%.1f", elapsed) + "秒（"
-              + String(format: "%.1f", audio.duration / max(elapsed, 0.001)) + "倍速） / "
-              + String(segs.count) + "セグメント " + String(text.count) + "文字")
+        let line1 = "[sense-voice] 準備 " + String(format: "%.1f", prepared) + "秒 / 認識 "
+        let line2 = String(format: "%.1f", elapsed) + "秒（"
+        let line3 = String(format: "%.1f", audio.duration / max(elapsed, 0.001)) + "倍速） / "
+        let line4 = String(segs.count) + "セグメント " + String(text.count) + "文字"
+        print(line1 + line2 + line3 + line4)
         print("[sense-voice] 冒頭: " + String(text.prefix(160)))
 
         XCTAssertFalse(segs.isEmpty, "セグメントが1件も返っていない")

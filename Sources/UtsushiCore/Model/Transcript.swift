@@ -20,6 +20,9 @@ public struct Segment: Sendable, Codable, Identifiable, Equatable {
     public var flags: Set<SegmentFlag>
     /// 校正の適用記録（nilなら未校正）
     public var correction: AppliedCorrection?
+    /// 話者番号（1始まり・到着順）。話者分離を動かしていない、
+    /// または区間を割り当てられなかった場合は nil。
+    public var speaker: Int?
 
     public var duration: Double { max(0, end - start) }
     /// 表示に使うべき本文
@@ -38,6 +41,7 @@ public struct Segment: Sendable, Codable, Identifiable, Equatable {
         self.rmsDBFS = nil
         self.flags = []
         self.correction = nil
+        self.speaker = nil
     }
 }
 

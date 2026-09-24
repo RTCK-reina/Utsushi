@@ -38,6 +38,9 @@ public actor TranscriptionPipeline {
         /// 照合が拾えない「全エンジンが同じ誤り方をした箇所」を埋める。
         /// 本文は書き換えず、候補を横に並べるだけ。
         public var enablePlausibilityCheck: Bool = true
+        /// 話者の区別を付ける（Nemotron 3 Diarization）。本文は変えず、
+        /// セグメントに話者番号を貼るだけ。失敗しても文字起こし自体は返す。
+        public var enableDiarization: Bool = true
         public init() {}
     }
 
@@ -48,6 +51,7 @@ public actor TranscriptionPipeline {
         case auditing
         case repairing(Int, Int)
         case crossChecking(String)
+        case diarizing
         case adjudicating(Int, Int)
         case correcting
         case summarizing(Int, Int)
@@ -63,6 +67,7 @@ public actor TranscriptionPipeline {
     }
 
     private let engine: any ASREngine
+    private let diarizer: DiarizationEngine?
     private let corrector: (any CorrectionEngine)?
     private let judge: (any DisagreementJudge)?
     private let summaryEngine: (any SummaryEngine)?
@@ -78,8 +83,10 @@ public actor TranscriptionPipeline {
                 judge: (any DisagreementJudge)? = nil,
                 summaryEngine: (any SummaryEngine)? = nil,
                 plausibilityChecker: (any PlausibilityChecker)? = nil,
+                diarizer: DiarizationEngine? = nil,
                 config: Configuration = Configuration()) {
         self.engine = engine
+        self.diarizer = diarizer
         self.corrector = corrector
         self.judge = judge
         self.summaryEngine = summaryEngine
@@ -122,6 +129,29 @@ public actor TranscriptionPipeline {
             progress: { p in emit(.transcribing, 0.18 + p * 0.52, String(localized: "認識中 \(Int(p * 100))%")) },
             isCancelled: isCancelled)
         segments.sort { $0.start < $1.start }
+
+        // 3.5 話者分離。音声をもう一度モデルに通して「誰がいつ話したか」を切る。
+        // 本文とは独立した解析なので、失敗しても文字起こしはそのまま返す
+        // （照合と同じ扱い。区間を付けられなかった段は speaker が nil のまま残る）。
+        var speakerSpans: [DiarizationEngine.SpeakerSpan] = []
+        if config.enableDiarization, let diarizer {
+            emit(.diarizing, 0.70, String(localized: "話者を分離中"))
+            do {
+                try await diarizer.prepare { msg, p in emit(.diarizing, 0.70 + p * 0.01, msg) }
+                speakerSpans = try await diarizer.diarize(
+                    samples: audio.samples,
+                    progress: { p in emit(.diarizing, 0.71 + p * 0.01, String(localized: "話者を分離中 \(Int(p * 100))%")) },
+                    isCancelled: isCancelled)
+            } catch ASRError.cancelled {
+                throw ASRError.cancelled
+            } catch is CancellationError {
+                throw ASRError.cancelled
+            } catch {
+                // 話者分離はメタデータの付与であって本文を変えないので、
+                // ここで落として文字起こし自体を失わせない。
+                NSLog("Utsushi: 話者分離に失敗（話者なしで続行）: \(error.localizedDescription)")
+            }
+        }
 
         // 4. 監査
         emit(.auditing, 0.72, String(localized: "検証中"))
@@ -195,6 +225,11 @@ public actor TranscriptionPipeline {
                 auditor.updateCoverage(&report.stats, segments: audited,
                                        envelope: envelope, totalDuration: audio.duration)
             }
+        }
+
+        // 5.5 話者を貼る。修復で差し込まれた区間も含めて最後に一括で割り当てる。
+        if !speakerSpans.isEmpty {
+            DiarizationEngine.assignSpeakers(to: &audited, spans: speakerSpans)
         }
 
         // 6. 照合（別エンジンで読み直し、食い違いを取り出す）

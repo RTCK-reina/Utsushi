@@ -1849,6 +1849,105 @@
         }
       }
     },
+    "話者 %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaker %lld"
+          }
+        }
+      }
+    },
+    "話者の区別": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaker separation"
+          }
+        }
+      }
+    },
+    "話者を分離中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Separating speakers"
+          }
+        }
+      }
+    },
+    "話者を分離中 %lld%": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Separating speakers %lld%"
+          }
+        }
+      }
+    },
+    "話者分離モデルを確認中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking speaker model"
+          }
+        }
+      }
+    },
+    "話者分離モデルを読み込み中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading speaker model"
+          }
+        }
+      }
+    },
+    "誰が話したかを区間に付ける（Nemotron 3 Diarization）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Label who spoke in each span (Nemotron 3 Diarization)"
+          }
+        }
+      }
+    },
+    "文字起こしと別のモデルで音声を解析し、各発話に話者番号を貼ります。本文は変わりません。同時に話している箇所にも対応します（最大8人）。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A separate model analyzes the audio and tags each utterance with a speaker number. The text itself is unchanged. Overlapping speech is supported (up to 8 speakers)."
+          }
+        }
+      }
+    },
+    "入れると初回に %@ のダウンロードが走る": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads %@ on first use"
+          }
+        }
+      }
+    },
     "話題": {
       "extractionState": "manual",
       "localizations": {

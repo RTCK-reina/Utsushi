@@ -35,14 +35,19 @@ struct TranscriptView: View {
     }
 
     private var textList: some View {
-        ScrollView {
+        let segs = transcript.visibleSegments
+        return ScrollView {
             LazyVStack(alignment: .leading, spacing: 6) {
-                ForEach(transcript.visibleSegments) { seg in
+                ForEach(Array(segs.enumerated()), id: \.element.id) { index, seg in
                     HStack(alignment: .top, spacing: 10) {
                         Text(Exporter.hms(seg.start))
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(.secondary)
                             .frame(width: 68, alignment: .leading)
+                        if let speaker = seg.speaker {
+                            SpeakerBadge(speaker: speaker,
+                                         isTurnChange: index == 0 || segs[index - 1].speaker != speaker)
+                        }
                         Text(seg.text).textSelection(.enabled)
                         Spacer(minLength: 0)
                         if seg.flags.contains(.lowConfidence) {
@@ -87,6 +92,38 @@ struct TranscriptView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+/// 話者の色分けバッジ。連続する同一話者の行では色の筋だけ出して、
+/// 話が切り替わる区切り（ターン）では番号を出す。
+struct SpeakerBadge: View {
+    let speaker: Int
+    let isTurnChange: Bool
+
+    /// 話者番号から固定の色を引く。順番に似すぎない色になるよう
+    /// 色相環を飛び飛びに回す（最大8話者想定）。
+    static func color(for speaker: Int) -> Color {
+        let palette: [Color] = [.blue, .orange, .green, .purple, .pink,
+                                .teal, .indigo, .brown]
+        return palette[(speaker - 1) % palette.count]
+    }
+
+    var body: some View {
+        let color = Self.color(for: speaker)
+        if isTurnChange {
+            Text("S\(speaker)")
+                .font(.system(.caption2, design: .monospaced).bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(color, in: Capsule())
+                .help(String(localized: "話者 \(speaker)"))
+        } else {
+            Capsule()
+                .fill(color)
+                .frame(width: 18, height: 4)
+                .padding(.top, 7)
         }
     }
 }

@@ -138,6 +138,34 @@ struct SettingsView: View {
 
             Toggle("取りこぼし疑い区間を自動で再認識する", isOn: $model.settings.autoRepair)
 
+            Section("話者の区別") {
+                Toggle(isOn: $model.settings.enableDiarization) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("誰が話したかを区間に付ける（Nemotron 3 Diarization）")
+                        Text("""
+                             文字起こしと別のモデルで音声を解析し、各発話に話者番号を貼ります。\
+                             本文は変わりません。同時に話している箇所にも対応します（最大8人）。
+                             """)
+                            .font(.caption).foregroundStyle(.secondary)
+                        if ModelCatalog.isInstalled(ModelCatalog.diarModel) {
+                            Label("導入済み", systemImage: "checkmark.circle.fill")
+                                .font(.caption2).foregroundStyle(.green)
+                        } else {
+                            Label("入れると初回に \(ModelCatalog.sizeText(ModelCatalog.diarModel.approximateBytes)) のダウンロードが走る",
+                                  systemImage: "arrow.down.circle")
+                                .font(.caption2).foregroundStyle(.orange)
+                        }
+                        if let c = ModelCatalog.diarModel.caveat {
+                            Label(c, systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption2).foregroundStyle(.orange)
+                        }
+                        if let a = ModelCatalog.diarModel.attribution {
+                            Text(a).font(.caption2).foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+
             VStack(alignment: .leading) {
                 HStack {
                     Text("無音とみなす音の小ささ")

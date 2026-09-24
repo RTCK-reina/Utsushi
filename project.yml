@@ -54,6 +54,7 @@ targets:
           - $(SRCROOT)/vendor/whisper.cpp/ggml/include
           - $(SRCROOT)/vendor/sherpa-onnx/sherpa-onnx/c-api
           - $(SRCROOT)/vendor/sherpa-onnx
+          - $(SRCROOT)/vendor/nemo-speech/include
         LIBRARY_SEARCH_PATHS:
           - $(SRCROOT)/vendor/whisper.cpp/build-macos/src
           - $(SRCROOT)/vendor/whisper.cpp/build-macos/ggml/src
@@ -78,6 +79,7 @@ targets:
           - -lkissfft-float
           - -lssentencepiece_core
           - -lonnxruntime
+          - $(SRCROOT)/vendor/nemo-speech/build-static/libnemo_diar.o
           - -lc++
         CLANG_CXX_LANGUAGE_STANDARD: c++17
     dependencies:
@@ -105,6 +107,7 @@ targets:
           - $(SRCROOT)/vendor/whisper.cpp/ggml/include
           - $(SRCROOT)/vendor/sherpa-onnx/sherpa-onnx/c-api
           - $(SRCROOT)/vendor/sherpa-onnx
+          - $(SRCROOT)/vendor/nemo-speech/include
         LIBRARY_SEARCH_PATHS:
           - $(SRCROOT)/vendor/whisper.cpp/build-macos/src
           - $(SRCROOT)/vendor/whisper.cpp/build-macos/ggml/src
@@ -129,6 +132,7 @@ targets:
           - -lkissfft-float
           - -lssentencepiece_core
           - -lonnxruntime
+          - $(SRCROOT)/vendor/nemo-speech/build-static/libnemo_diar.o
           - -lc++
     dependencies:
       - sdk: Metal.framework
