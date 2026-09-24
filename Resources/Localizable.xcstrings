@@ -1519,28 +1519,6 @@
         }
       }
     },
-    "設定の「校正」タブで要約を有効にすると、\\n次回の実行から要点を抜き出します。": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Turn on summaries in the Proofreading tab\\nto extract key points on the next run."
-          }
-        }
-      }
-    },
-    "設定の「照合」タブで別エンジンを有効にすると、\\n食い違う箇所を洗い出せます。": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enable another engine in the Cross-check tab\\nto surface where the engines disagree."
-          }
-        }
-      }
-    },
     "設定（⌘,）": {
       "extractionState": "manual",
       "localizations": {
@@ -2636,7 +2614,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standard downloads %@ once (%lld models)"
+            "value": "Standard downloads %@ once (%lld model(s))"
           }
         }
       }
@@ -2703,6 +2681,83 @@
           "stringUnit": {
             "state": "translated",
             "value": "Drafts with the built-in engine only — no cross-check or correction. About 30 s for a 57-minute recording. Proper nouns are fragile."
+          }
+        }
+      }
+    },
+    "設定の「校正」タブで要約を有効にすると、\n次回の実行から要点を抜き出します。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on summaries in the Proofreading tab\nto extract key points from the next run."
+          }
+        }
+      }
+    },
+    "設定の「照合」タブで別エンジンを有効にすると、\n食い違う箇所を洗い出せます。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable another engine in the Cross-check tab\nto surface where the engines disagree."
+          }
+        }
+      }
+    },
+    "要約はありません": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No summary"
+          }
+        }
+      }
+    },
+    "照合していません": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No cross-check"
+          }
+        }
+      }
+    },
+    "正しい表記": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct spelling"
+          }
+        }
+      }
+    },
+    "読み": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading"
+          }
+        }
+      }
+    },
+    "誤認識されがちな表記（カンマ区切り）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Often-misheard spellings (comma-separated)"
           }
         }
       }
