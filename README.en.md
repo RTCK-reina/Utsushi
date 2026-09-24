@@ -360,7 +360,8 @@ Everything fetched or linked at run time follows its own license:
 |---|---|
 | whisper.cpp | MIT |
 | sherpa-onnx / onnxruntime | Apache-2.0 |
-| whisper large-v3-turbo | MIT |
+| whisper large-v3 / large-v3-turbo | MIT |
+| Silero VAD | MIT |
 | ReazonSpeech k2-v2 | Apache-2.0 |
 | SenseVoice-Small (FunASR / Alibaba) | Apache-2.0 |
 | Qwen3-ASR (Alibaba) | Apache-2.0 |

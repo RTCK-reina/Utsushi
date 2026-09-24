@@ -52,6 +52,16 @@ public struct Summary: Sendable, Codable, Equatable {
 
         public var displayName: String {
             switch self {
+            case .topic: return String(localized: "話題")
+            case .decision: return String(localized: "決定")
+            case .action: return String(localized: "やること")
+            case .number: return String(localized: "数値・日程")
+            case .question: return String(localized: "質疑")
+            }
+        }
+        /// 書き出し文書に入れる名。文書は日本語で組み立てるので画面言語には追従させない。
+        public var documentName: String {
+            switch self {
             case .topic: return "話題"
             case .decision: return "決定"
             case .action: return "やること"

@@ -69,15 +69,15 @@ struct CrossCheckPanel: View {
     static func kindLabel(_ kind: TranscriptAlignment.Kind) -> String? {
         switch kind {
         case .substantive: return nil
-        case .notation:    return "表記だけ"
-        case .alignment:   return "整列のずれ"
-        case .inflection:  return "語尾のゆれ"
+        case .notation:    return String(localized: "表記だけ")
+        case .alignment:   return String(localized: "整列のずれ")
+        case .inflection:  return String(localized: "語尾のゆれ")
         }
     }
 
     private func row(_ k: String, _ v: String) -> some View {
         HStack {
-            Text(k).font(.caption).foregroundStyle(.secondary)
+            Text(LocalizedStringKey(k)).font(.caption).foregroundStyle(.secondary)
             Spacer()
             Text(v).font(.system(.caption, design: .monospaced))
         }
@@ -105,7 +105,7 @@ struct CrossCheckPanel: View {
                     HStack(spacing: 8) {
                         Text(Exporter.hms(d.start))
                             .font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
-                        Text(d.readingsMatch ? "読み一致" : "読み不一致")
+                        Text(LocalizedStringKey(d.readingsMatch ? "読み一致" : "読み不一致"))
                             .font(.caption2)
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background((d.readingsMatch ? Color.blue : Color.orange).opacity(0.15),
@@ -132,7 +132,7 @@ struct CrossCheckPanel: View {
                             Text(c.engine)
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .frame(width: 130, alignment: .leading)
-                            Text(c.text.isEmpty ? "（なし）" : c.text)
+                            Text(c.text.isEmpty ? String(localized: "（なし）") : c.text)
                                 .fontWeight(verdict?.chosenText == c.text ? .semibold : .regular)
                                 .textSelection(.enabled)
                         }

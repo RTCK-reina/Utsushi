@@ -79,7 +79,7 @@ public final class FoundationModelsPlausibility: PlausibilityChecker, @unchecked
     private let options: GenerationOptions
 
     public init(temperature: Double = 0.0) {
-        self.options = GenerationOptions(samplingMode: .greedy,
+        self.options = GenerationOptions(sampling: .greedy,
                                          temperature: temperature,
                                          maximumResponseTokens: 500)
     }
