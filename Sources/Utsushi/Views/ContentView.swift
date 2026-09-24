@@ -94,24 +94,31 @@ struct ContentView: View {
     }
 
     /// ファイル未選択の空状態。ドロップは窓のどこでも受けるので、
-    /// ここは案内と入口のボタンに絞る。
+    /// 上は案内と入口のボタンに絞り、残りは「この設定で実行される」
+    /// 中身（エンジン設定フォーム）をそのまま出す。
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Spacer()
-            Image(systemName: "waveform.badge.magnifyingglass")
-                .font(.system(size: 30)).foregroundStyle(.secondary)
-            Text("動画・音声ファイルをどこにでもドロップ").font(.headline)
-            Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています")
-                .font(.caption).foregroundStyle(.secondary)
-            // ドロップだけだと「ドロップ以外の道が無い」ように見える。
-            Button("ファイルを選ぶ…") { model.presentOpenPanel() }
-                .controlSize(.large)
-            Text("音声はこの Mac の中だけで処理されます。外部に送信されることはありません。")
-                .font(.caption2).foregroundStyle(.secondary)
-            capabilityBadges
-            Spacer()
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: "waveform.badge.magnifyingglass")
+                        .font(.system(size: 24)).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("動画・音声ファイルをどこにでもドロップ").font(.headline)
+                        Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        Text("音声はこの Mac の中だけで処理されます。外部に送信されることはありません。")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    // ドロップだけだと「ドロップ以外の道が無い」ように見える。
+                    Button("ファイルを選ぶ…") { model.presentOpenPanel() }
+                }
+                capabilityBadges
+            }
+            .padding(12)
+            Divider()
+            EngineSettingsForm()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// いまの設定で、まだ手元に無いモデル。
