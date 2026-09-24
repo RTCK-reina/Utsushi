@@ -837,13 +837,13 @@
         }
       }
     },
-    "動画・音声ファイルをここにドロップ": {
+    "動画・音声ファイルをどこにでもドロップ": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drop a video or audio file here"
+            "value": "Drop a video or audio file anywhere"
           }
         }
       }

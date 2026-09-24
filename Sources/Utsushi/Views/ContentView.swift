@@ -12,10 +12,32 @@ struct ContentView: View {
             if let t = model.transcript {
                 TranscriptView(transcript: t)
             } else {
-                dropZone
+                emptyState
             }
             Divider()
             footer
+        }
+        // ドロップの受け口は窓全体。ドラッグ中だけ枠が出れば、
+        // 待っている間に巨大な点線枠を並べる必要はない。
+        .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
+            guard let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url else { return }
+                Task { @MainActor in model.accept(url: url) }
+            }
+            return true
+        }
+        .overlay {
+            if isTargeted {
+                ZStack {
+                    Color.accentColor.opacity(0.08)
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [7]))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(16)
+                }
+                .allowsHitTesting(false)
+            }
         }
         .alert("エラー", isPresented: Binding(
             get: { model.errorMessage != nil },
@@ -71,12 +93,14 @@ struct ContentView: View {
         .padding(12)
     }
 
-    private var dropZone: some View {
-        VStack(spacing: 14) {
+    /// ファイル未選択の空状態。ドロップは窓のどこでも受けるので、
+    /// ここは案内と入口のボタンに絞る。
+    private var emptyState: some View {
+        VStack(spacing: 10) {
             Spacer()
             Image(systemName: "waveform.badge.magnifyingglass")
-                .font(.system(size: 46)).foregroundStyle(.secondary)
-            Text("動画・音声ファイルをここにドロップ").font(.title3)
+                .font(.system(size: 30)).foregroundStyle(.secondary)
+            Text("動画・音声ファイルをどこにでもドロップ").font(.headline)
             Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています")
                 .font(.caption).foregroundStyle(.secondary)
             // ドロップだけだと「ドロップ以外の道が無い」ように見える。
@@ -88,21 +112,6 @@ struct ContentView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(isTargeted ? Color.accentColor.opacity(0.08) : Color.clear)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [7]))
-                .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary.opacity(0.35))
-                .padding(20)
-        )
-        .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
-            guard let provider = providers.first else { return false }
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                guard let url else { return }
-                Task { @MainActor in model.accept(url: url) }
-            }
-            return true
-        }
     }
 
     /// いまの設定で、まだ手元に無いモデル。
