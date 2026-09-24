@@ -48,6 +48,88 @@ final class DiarizationTests: XCTestCase {
         XCTAssertNil(segments[0].speaker)
     }
 
+    // MARK: - 話者操作（rename / merge / 再割り当て）
+
+    private func transcriptWith(_ speakers: [Int?]) -> Transcript {
+        Transcript(meta: TranscriptMeta(sourceURL: nil, sourceDuration: 30,
+                                      engine: "test", modelName: "m", language: "ja"),
+                   segments: speakers.enumerated().map { i, s in
+                       var seg = self.seg(Double(i * 5), Double(i * 5 + 5))
+                       seg.speaker = s
+                       return seg
+                   })
+    }
+
+    func testRenameSpeakerStoresName() {
+        var t = transcriptWith([1, 1, 2])
+        t.renameSpeaker(1, to: "田中")
+        XCTAssertEqual(t.speakerName(1), "田中")
+        XCTAssertEqual(t.speakerName(2), "話者2")
+        XCTAssertEqual(t.speakerIDs, [1, 2])
+    }
+
+    /// 空名にすると番号表示に戻る
+    func testRenameEmptyClears() {
+        var t = transcriptWith([1])
+        t.renameSpeaker(1, to: "田中")
+        t.renameSpeaker(1, to: "  ")
+        XCTAssertEqual(t.speakerName(1), "話者1")
+        XCTAssertTrue(t.meta.speakerNames.isEmpty)
+    }
+
+    /// 誤分離の統合: from の区間が into に移り、未命名なら名前も移る
+    func testMergeSpeakersMovesSegmentsAndName() {
+        var t = transcriptWith([1, 2, 1, 2])
+        t.renameSpeaker(1, to: "田中")
+        t.mergeSpeakers(from: 1, into: 2)
+        XCTAssertEqual(t.segments.map(\.speaker), [2, 2, 2, 2])
+        XCTAssertEqual(t.speakerName(2), "田中")
+        XCTAssertEqual(t.speakerIDs, [2])
+    }
+
+    /// 移し先に名前があるときは先側を優先する
+    func testMergeKeepsExistingTargetName() {
+        var t = transcriptWith([1, 2])
+        t.renameSpeaker(1, to: "田中")
+        t.renameSpeaker(2, to: "佐藤")
+        t.mergeSpeakers(from: 1, into: 2)
+        XCTAssertEqual(t.speakerName(2), "佐藤")
+    }
+
+    func testSetSpeakerOnOneSegment() {
+        var t = transcriptWith([1, 1, 2])
+        let id = t.segments[1].id
+        t.setSpeaker(of: id, to: 2)
+        XCTAssertEqual(t.segments[1].speaker, 2)
+        t.setSpeaker(of: id, to: nil)
+        XCTAssertNil(t.segments[1].speaker)
+    }
+
+    /// 話者名の無い古い JSON も読める（後方互換）
+    func testOldJSONWithoutSpeakerNamesDecodes() throws {
+        var t = transcriptWith([1])
+        t.renameSpeaker(1, to: "田中")
+        let data = try JSONEncoder().encode(t)
+        // 実際のエンコード結果から speakerNames だけ消して「古い形式」を作る。
+        // 手書き JSON だと他フィールドの形がズレたとき嘘の合格になる。
+        var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var meta = try XCTUnwrap(obj["meta"] as? [String: Any])
+        meta.removeValue(forKey: "speakerNames")
+        obj["meta"] = meta
+        let oldData = try JSONSerialization.data(withJSONObject: obj)
+        let decoded = try JSONDecoder().decode(Transcript.self, from: oldData)
+        XCTAssertTrue(decoded.meta.speakerNames.isEmpty)
+        XCTAssertEqual(decoded.speakerName(1), "話者1")
+    }
+
+    /// 付けた名前が書き出しに出る
+    func testExportUsesSpeakerNames() {
+        var t = transcriptWith([1])
+        t.renameSpeaker(1, to: "田中")
+        XCTAssertTrue(Exporter().srt(t).contains("田中: "))
+        XCTAssertTrue(Exporter().plain(t).contains("【田中】"))
+    }
+
     /// 実モデルを通す回帰確認。モデルが導入済みのときだけ走る。
     /// TTS 音声ではなく実音声が要るので、合成音声では走らせない。
     func testRealModelSmoke() async throws {

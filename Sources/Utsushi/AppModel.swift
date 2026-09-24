@@ -245,6 +245,22 @@ final class AppModel: ObservableObject {
         transcript = t
     }
 
+    // MARK: - 話者
+
+    func renameSpeaker(_ id: Int, to name: String) {
+        transcript?.renameSpeaker(id, to: name)
+    }
+
+    /// 誤分離の統合: from の全区間を into に付け替える。
+    func mergeSpeakers(from: Int, into: Int) {
+        transcript?.mergeSpeakers(from: from, into: into)
+    }
+
+    /// 1区間の話者を付け替える。nil で話者なしに戻す。
+    func setSegmentSpeaker(_ segmentID: UUID, to id: Int?) {
+        transcript?.setSpeaker(of: segmentID, to: id)
+    }
+
     // MARK: - 書き出し
 
     func export(_ format: ExportFormat) {

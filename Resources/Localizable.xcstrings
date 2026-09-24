@@ -1871,6 +1871,116 @@
         }
       }
     },
+    "話者なし": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No speaker"
+          }
+        }
+      }
+    },
+    "話者名を変更": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename Speaker"
+          }
+        }
+      }
+    },
+    "%@に統合": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge into %@"
+          }
+        }
+      }
+    },
+    "この発言を別の話者に": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign to another speaker"
+          }
+        }
+      }
+    },
+    "新しい話者": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New speaker"
+          }
+        }
+      }
+    },
+    "空欄にすると番号表示に戻ります": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave empty to revert to the numbered label"
+          }
+        }
+      }
+    },
+    "名前": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "名前を変更…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename…"
+          }
+        }
+      }
+    },
+    "他の話者に統合": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge into another speaker"
+          }
+        }
+      }
+    },
+    "発話タイムライン": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speech timeline"
+          }
+        }
+      }
+    },
     "話者の区別": {
       "extractionState": "manual",
       "localizations": {

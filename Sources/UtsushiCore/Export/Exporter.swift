@@ -45,10 +45,11 @@ public struct Exporter: Sendable {
     // MARK: -
 
     /// 話者タグ。分離が動いていて区間に番号が付いているときだけ出す。
-    /// `話者1:` の形。書き出しは文書なので文書の言語（日本語）で固定する。
-    static func speakerPrefix(_ seg: Segment) -> String {
+    /// 名付け済みならその名、さもなければ `話者1:` の形。書き出しは文書なので
+    /// 文書の言語（日本語）で固定する。
+    static func speakerPrefix(_ seg: Segment, in t: Transcript) -> String {
         guard let s = seg.speaker else { return "" }
-        return "話者\(s): "
+        return "\(t.speakerName(s)): "
     }
 
     /// 話者分離が効いていたか（1区間でも番号が付いていれば true）
@@ -158,7 +159,7 @@ public struct Exporter: Sendable {
                 out.append("\n## \(Self.hms(Double(c * 600))) – \(Self.hms(min(Double((c + 1) * 600), t.meta.sourceDuration)))\n")
             }
             let mark = seg.flags.contains(.lowConfidence) ? " ⚠︎" : ""
-            out.append("`[\(Self.hms(seg.start))]`\(mark) \(Self.speakerPrefix(seg))\(seg.text)")
+            out.append("`[\(Self.hms(seg.start))]`\(mark) \(Self.speakerPrefix(seg, in: t))\(seg.text)")
             for line in Self.plausibilityNotes(for: seg, in: t) { out.append(line) }
             for line in Self.uncertaintyNotes(for: seg, in: t) { out.append(line) }
             out.append("")
@@ -276,7 +277,7 @@ public struct Exporter: Sendable {
         for (i, seg) in t.visibleSegments.enumerated() {
             out.append("\(i + 1)")
             out.append("\(Self.timecode(seg.start, sep: ",")) --> \(Self.timecode(max(seg.end, seg.start + 0.2), sep: ","))")
-            out.append(Self.speakerPrefix(seg) + seg.text)
+            out.append(Self.speakerPrefix(seg, in: t) + seg.text)
             out.append("")
         }
         return out.joined(separator: "\n")
@@ -286,7 +287,7 @@ public struct Exporter: Sendable {
         var out = ["WEBVTT", ""]
         for seg in t.visibleSegments {
             out.append("\(Self.timecode(seg.start, sep: ".")) --> \(Self.timecode(max(seg.end, seg.start + 0.2), sep: "."))")
-            out.append(Self.speakerPrefix(seg) + seg.text)
+            out.append(Self.speakerPrefix(seg, in: t) + seg.text)
             out.append("")
         }
         return out.joined(separator: "\n")
@@ -304,7 +305,7 @@ public struct Exporter: Sendable {
                 && !current.isEmpty {
                 paragraphs.append(current); current = ""
             }
-            if turnChanged { current += "【話者\(seg.speaker!)】" }
+            if turnChanged { current += "【\(t.speakerName(seg.speaker!))】" }
             current += seg.text
             if current.count >= 90 { paragraphs.append(current); current = "" }
             prevEnd = seg.end

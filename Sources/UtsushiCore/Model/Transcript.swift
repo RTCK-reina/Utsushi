@@ -133,13 +133,29 @@ public struct TranscriptMeta: Sendable, Codable, Equatable {
     public var createdAt: Date
     /// どちらの押しかたで作ったか。古い書き出しには無いので Optional。
     public var mode: RunMode?
+    /// 話者番号 → ユーザーが付けた表示名。未命名は「話者N」として扱う。
+    public var speakerNames: [Int: String]
     public init(sourceURL: URL?, sourceDuration: Double, engine: String,
                 modelName: String, language: String, createdAt: Date = Date(),
-                mode: RunMode? = nil) {
+                mode: RunMode? = nil, speakerNames: [Int: String] = [:]) {
         self.sourceURL = sourceURL; self.sourceDuration = sourceDuration
         self.engine = engine; self.modelName = modelName
         self.language = language; self.createdAt = createdAt
         self.mode = mode
+        self.speakerNames = speakerNames
+    }
+
+    /// 話者名が無い古い JSON も読めるようにする。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sourceURL = try c.decodeIfPresent(URL.self, forKey: .sourceURL)
+        sourceDuration = try c.decode(Double.self, forKey: .sourceDuration)
+        engine = try c.decode(String.self, forKey: .engine)
+        modelName = try c.decode(String.self, forKey: .modelName)
+        language = try c.decode(String.self, forKey: .language)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        mode = try c.decodeIfPresent(RunMode.self, forKey: .mode)
+        speakerNames = try c.decodeIfPresent([Int: String].self, forKey: .speakerNames) ?? [:]
     }
 }
 
@@ -186,6 +202,55 @@ public struct Transcript: Sendable, Codable, Equatable {
     /// 出力に載せるべきセグメント（破棄されたものを除く）
     public var visibleSegments: [Segment] {
         segments.filter { !$0.isSuppressed && !$0.text.isEmpty }
+    }
+
+    // MARK: - 話者
+
+    /// 話者の表示名。ユーザーが名付けていなければ「話者N」。
+    public func speakerName(_ id: Int) -> String {
+        guard let name = meta.speakerNames[id], !name.isEmpty else { return "話者\(id)" }
+        return name
+    }
+
+    /// 出ている話者の一覧（番号順）。
+    public var speakerIDs: [Int] {
+        Array(Set(segments.compactMap(\.speaker))).sorted()
+    }
+
+    /// 話者ごとの発話秒数（表示中の区間だけ）。
+    public var speakerDurations: [Int: Double] {
+        var out: [Int: Double] = [:]
+        for seg in visibleSegments {
+            guard let s = seg.speaker else { continue }
+            out[s, default: 0] += seg.duration
+        }
+        return out
+    }
+
+    /// 話者名を付け替える。空にすると番号表示に戻る。
+    public mutating func renameSpeaker(_ id: Int, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { meta.speakerNames.removeValue(forKey: id) }
+        else { meta.speakerNames[id] = trimmed }
+    }
+
+    /// ある話者の全区間を別の話者へ移す（誤分離の統合）。
+    /// 移し先に名前が無く、移し元にあれば名前ごと引き継ぐ。
+    public mutating func mergeSpeakers(from: Int, into: Int) {
+        guard from != into else { return }
+        for i in segments.indices where segments[i].speaker == from {
+            segments[i].speaker = into
+        }
+        if let name = meta.speakerNames.removeValue(forKey: from),
+           meta.speakerNames[into] == nil {
+            meta.speakerNames[into] = name
+        }
+    }
+
+    /// 1区間の話者を付け替える。nil で話者なしに戻す。
+    public mutating func setSpeaker(of segmentID: UUID, to id: Int?) {
+        guard let i = segments.firstIndex(where: { $0.id == segmentID }) else { return }
+        segments[i].speaker = id
     }
     /// 監査で破棄した区間。人が誤爆を確認できるよう原文のまま持つ。
     public var suppressedSegments: [Segment] {

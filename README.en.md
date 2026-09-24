@@ -160,7 +160,7 @@ This yields 15 annotated lines for an 11-minute clip, catching things like éƒ¨é•
 The document opens with a section on how to read it, declaring the symbols and the **known weaknesses** up front:
 
 - Homophones and proper nouns get confused. Treat any word that does not make sense as a possible misrecognition.
-- Speaker numbers are an estimate from audio alone (Nemotron 3 Diarization). It cannot tell who the person is, and short utterances or similar voices are easily confused.
+- Speaker numbers are an estimate from audio alone (Nemotron 3 Diarization). It cannot tell who the person is, and short utterances or similar voices are easily confused. You can rename speakers from the chips above the transcript, merge them, or reassign a single utterance (names carry through to exports).
 - Do not treat numbers, proper nouns or dates as settled on the strength of this document alone.
 
 The audit section is explicitly marked as not being spoken content. Without that, its wording gets quoted as if someone had said it.
