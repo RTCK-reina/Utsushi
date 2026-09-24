@@ -215,7 +215,9 @@ zipformer は「三月」、parakeet は「3月」と書く。認識は合って
 冒頭には「この文書の読み方」を置き、記号の意味と**既知の弱点**を先に宣言する:
 
 - 同音異義語と固有名詞を取り違える。意味が通らない語は誤認識を疑うこと
-- **話者の区別をしていない。** 複数人の会話でも1人の連続した発話に見える
+- 話者番号は音だけを見た推定（Nemotron 3 Diarization）。誰の名前かは分からず、
+  短い発話や声の似た話者は取り違えやすい。
+  名前は本文タブの話者チップから付けられ、統合や1区間の付け替えもできる（書き出しにも反映される）
 - 数値・固有名詞・日付は、この文書だけを根拠に確定しない
 
 検証記録の節にも「ここから下は話された内容ではない」と明記してある。
@@ -393,6 +395,7 @@ UI 側に設定をばらして持っていたときに「画面には出てい�
 brew install cmake xcodegen
 script/bootstrap.sh          # whisper.cpp を取得・ビルドし Xcode プロジェクトを生成
 vendor/build_sherpa.sh       # 照合用エンジン（sherpa-onnx v1.13.4 静的）をビルド
+vendor/build_nemo_speech.sh  # 話者分離（NeMo-Speech.cpp・CPU 静的）をビルド
 script/build_and_run.sh verify
 script/build_and_run.sh test
 ```

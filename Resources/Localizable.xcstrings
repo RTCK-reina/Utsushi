@@ -837,13 +837,13 @@
         }
       }
     },
-    "動画・音声ファイルをここにドロップ": {
+    "動画・音声ファイルをどこにでもドロップ": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drop a video or audio file here"
+            "value": "Drop a video or audio file anywhere"
           }
         }
       }
@@ -1453,6 +1453,17 @@
         }
       }
     },
+    "英語中心の評価で高精度（Diarization-Bench 1位）だが、日本語での実測はまだ浅い": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High accuracy in English-focused benchmarks (No. 1 on Diarization-Bench), but little measured data for Japanese yet"
+          }
+        }
+      }
+    },
     "著作権": {
       "extractionState": "manual",
       "localizations": {
@@ -1845,6 +1856,215 @@
           "stringUnit": {
             "state": "translated",
             "value": "Audit log"
+          }
+        }
+      }
+    },
+    "話者 %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaker %lld"
+          }
+        }
+      }
+    },
+    "話者なし": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No speaker"
+          }
+        }
+      }
+    },
+    "話者名を変更": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename Speaker"
+          }
+        }
+      }
+    },
+    "%@に統合": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge into %@"
+          }
+        }
+      }
+    },
+    "この発言を別の話者に": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign to another speaker"
+          }
+        }
+      }
+    },
+    "新しい話者": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New speaker"
+          }
+        }
+      }
+    },
+    "空欄にすると番号表示に戻ります": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave empty to revert to the numbered label"
+          }
+        }
+      }
+    },
+    "名前": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "名前を変更…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename…"
+          }
+        }
+      }
+    },
+    "他の話者に統合": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge into another speaker"
+          }
+        }
+      }
+    },
+    "発話タイムライン": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speech timeline"
+          }
+        }
+      }
+    },
+    "話者の区別": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaker separation"
+          }
+        }
+      }
+    },
+    "話者を分離中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Separating speakers"
+          }
+        }
+      }
+    },
+    "話者を分離中 %lld%%": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Separating speakers %lld%"
+          }
+        }
+      }
+    },
+    "話者分離モデルを確認中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking speaker model"
+          }
+        }
+      }
+    },
+    "話者分離モデルを読み込み中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading speaker model"
+          }
+        }
+      }
+    },
+    "誰が話したかを区間に付ける（Nemotron 3 Diarization）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Label who spoke in each span (Nemotron 3 Diarization)"
+          }
+        }
+      }
+    },
+    "文字起こしと別のモデルで音声を解析し、各発話に話者番号を貼ります。本文は変わりません。同時に話している箇所にも対応します（最大8人）。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A separate model analyzes the audio and tags each utterance with a speaker number. The text itself is unchanged. Overlapping speech is supported (up to 8 speakers)."
+          }
+        }
+      }
+    },
+    "入れると初回に %@ のダウンロードが走る": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads %@ on first use"
           }
         }
       }

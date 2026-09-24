@@ -37,6 +37,10 @@ public struct SessionSettings: Sendable, Codable, Equatable {
     /// 照合が拾えない「全エンジンが同じ誤り方をした箇所」を埋める。
     /// 本文は書き換えず、候補を横に並べるだけなので既定で有効。
     public var enablePlausibilityCheck: Bool = true
+    /// 話者の区別を付ける（Nemotron 3 Diarization）。
+    /// 既定は有効。本文は変えず、誰が話したかを区間に貼るだけ。
+    /// 初回は約100MBのモデル取得が走る。
+    public var enableDiarization: Bool = true
     /// 要約を作る
     public var enableSummary: Bool = true
     /// 1塊の最大文字数（Foundation Models の文脈長に収める）
@@ -102,6 +106,7 @@ public struct SessionSettings: Sendable, Codable, Equatable {
         c.judgeDifferentReadings = judgeDifferentReadings
         c.enableSummary = enableSummary && hasSummarizer
         c.enablePlausibilityCheck = enablePlausibilityCheck && hasPlausibilityChecker
+        c.enableDiarization = enableDiarization
         // 高速は「下書きを一気に見る」ための押しかた。時間のかかる段を全部落とす。
         //
         // ただし**無音ゲートと反復ループの検出は落とさない**。速い代わりに幻聴が

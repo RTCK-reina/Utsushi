@@ -12,10 +12,32 @@ struct ContentView: View {
             if let t = model.transcript {
                 TranscriptView(transcript: t)
             } else {
-                dropZone
+                emptyState
             }
             Divider()
             footer
+        }
+        // ドロップの受け口は窓全体。ドラッグ中だけ枠が出れば、
+        // 待っている間に巨大な点線枠を並べる必要はない。
+        .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
+            guard let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url else { return }
+                Task { @MainActor in model.accept(url: url) }
+            }
+            return true
+        }
+        .overlay {
+            if isTargeted {
+                ZStack {
+                    Color.accentColor.opacity(0.08)
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [7]))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(16)
+                }
+                .allowsHitTesting(false)
+            }
         }
         .alert("エラー", isPresented: Binding(
             get: { model.errorMessage != nil },
@@ -71,37 +93,31 @@ struct ContentView: View {
         .padding(12)
     }
 
-    private var dropZone: some View {
-        VStack(spacing: 14) {
-            Spacer()
-            Image(systemName: "waveform.badge.magnifyingglass")
-                .font(.system(size: 46)).foregroundStyle(.secondary)
-            Text("動画・音声ファイルをここにドロップ").font(.title3)
-            Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています")
-                .font(.caption).foregroundStyle(.secondary)
-            // ドロップだけだと「ドロップ以外の道が無い」ように見える。
-            Button("ファイルを選ぶ…") { model.presentOpenPanel() }
-                .controlSize(.large)
-            Text("音声はこの Mac の中だけで処理されます。外部に送信されることはありません。")
-                .font(.caption2).foregroundStyle(.secondary)
-            capabilityBadges
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(isTargeted ? Color.accentColor.opacity(0.08) : Color.clear)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [7]))
-                .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary.opacity(0.35))
-                .padding(20)
-        )
-        .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
-            guard let provider = providers.first else { return false }
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                guard let url else { return }
-                Task { @MainActor in model.accept(url: url) }
+    /// ファイル未選択の空状態。ドロップは窓のどこでも受けるので、
+    /// 上は案内と入口のボタンに絞り、残りは「この設定で実行される」
+    /// 中身（エンジン設定フォーム）をそのまま出す。
+    private var emptyState: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: "waveform.badge.magnifyingglass")
+                        .font(.system(size: 24)).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("動画・音声ファイルをどこにでもドロップ").font(.headline)
+                        Text("mov / mp4 / m4a / mp3 / wav など、AVFoundation が読める形式に対応しています")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        Text("音声はこの Mac の中だけで処理されます。外部に送信されることはありません。")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    // ドロップだけだと「ドロップ以外の道が無い」ように見える。
+                    Button("ファイルを選ぶ…") { model.presentOpenPanel() }
+                }
+                capabilityBadges
             }
-            return true
+            .padding(12)
+            Divider()
+            EngineSettingsForm()
         }
     }
 

@@ -32,6 +32,8 @@ final class AppModel: ObservableObject {
     /// 実行をまたいで使い回す。モデルの再読み込み（10秒前後）を避けるためと、
     /// 終了時に確実に解放するために参照を持ち続ける。
     private var whisperEngine: WhisperEngine?
+    /// 話者分離もモデルを読み直さず使い回す。生成モデルは持たないので軽い。
+    private var diarizer = DiarizationEngine()
     /// 通知の解除は行わない。AppModel はアプリと同じ寿命なので、
     /// 解除するタイミングが存在しない（deinit は actor 隔離の外なので触れない）。
     private var terminationObserver: NSObjectProtocol?
@@ -66,6 +68,7 @@ final class AppModel: ObservableObject {
                 self?.settingsSaveTask?.cancel()
                 self?.saveSettings()
                 self?.whisperEngine?.shutdown()
+                self?.diarizer.shutdown()
             }
         }
     }
@@ -175,7 +178,8 @@ final class AppModel: ObservableObject {
                                                 mode: mode)
         let p = TranscriptionPipeline(engine: engine, corrector: corrector, judge: judge,
                                       summaryEngine: summarizer,
-                                      plausibilityChecker: plausibility, config: config)
+                                      plausibilityChecker: plausibility,
+                                      diarizer: diarizer, config: config)
         pipeline = p
 
         // AppModel は @MainActor なので、ここで作る Task は MainActor 隔離を引き継ぐ。
@@ -239,6 +243,22 @@ final class AppModel: ObservableObject {
             t.segments[i].correction?.accepted = false
         }
         transcript = t
+    }
+
+    // MARK: - 話者
+
+    func renameSpeaker(_ id: Int, to name: String) {
+        transcript?.renameSpeaker(id, to: name)
+    }
+
+    /// 誤分離の統合: from の全区間を into に付け替える。
+    func mergeSpeakers(from: Int, into: Int) {
+        transcript?.mergeSpeakers(from: from, into: into)
+    }
+
+    /// 1区間の話者を付け替える。nil で話者なしに戻す。
+    func setSegmentSpeaker(_ segmentID: UUID, to id: Int?) {
+        transcript?.setSpeaker(of: segmentID, to: id)
     }
 
     // MARK: - 書き出し

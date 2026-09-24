@@ -44,6 +44,19 @@ public struct Exporter: Sendable {
 
     // MARK: -
 
+    /// 話者タグ。分離が動いていて区間に番号が付いているときだけ出す。
+    /// 名付け済みならその名、さもなければ `話者1:` の形。書き出しは文書なので
+    /// 文書の言語（日本語）で固定する。
+    static func speakerPrefix(_ seg: Segment, in t: Transcript) -> String {
+        guard let s = seg.speaker else { return "" }
+        return "\(t.speakerName(s)): "
+    }
+
+    /// 話者分離が効いていたか（1区間でも番号が付いていれば true）
+    static func hasSpeakers(_ t: Transcript) -> Bool {
+        t.segments.contains { $0.speaker != nil }
+    }
+
     public func markdown(_ t: Transcript) -> String {
         var out: [String] = []
         let name = t.meta.sourceURL?.lastPathComponent ?? "(不明)"
@@ -93,10 +106,22 @@ public struct Exporter: Sendable {
                    >
                    > - **同音異義語と固有名詞を取り違える**（「期初」→「気象」のように、\
                    文脈に合わない語が自信満々に出る）。意味が通らない語は誤認識を疑う
-                   > - **話者の区別をしていない。** 発言が誰のものかは書かれていないので、\
-                   複数人の会話でも1人の連続した発話に見える
-                   > - 数値・固有名詞・日付は、この文書だけを根拠に確定しない\n
                    """)
+        if Self.hasSpeakers(t) {
+            out.append("""
+                       > - `話者1:` などは、その区間を話したと推定された話者の番号。\
+                       **音だけを見た推定**で、誰の名前かは分からず、\
+                       別の録音の「話者1」と同じ人とは限らない。短い発話や声の似た話者は\
+                       取り違えやすいので、発言の帰属を断定する根拠にしない
+                       > - 数値・固有名詞・日付は、この文書だけを根拠に確定しない\n
+                       """)
+        } else {
+            out.append("""
+                       > - **話者の区別をしていない。** 発言が誰のものかは書かれていないので、\
+                       複数人の会話でも1人の連続した発話に見える
+                       > - 数値・固有名詞・日付は、この文書だけを根拠に確定しない\n
+                       """)
+        }
 
         if !t.summary.isEmpty {
             out.append("## 要約\n")
@@ -134,7 +159,7 @@ public struct Exporter: Sendable {
                 out.append("\n## \(Self.hms(Double(c * 600))) – \(Self.hms(min(Double((c + 1) * 600), t.meta.sourceDuration)))\n")
             }
             let mark = seg.flags.contains(.lowConfidence) ? " ⚠︎" : ""
-            out.append("`[\(Self.hms(seg.start))]`\(mark) \(seg.text)")
+            out.append("`[\(Self.hms(seg.start))]`\(mark) \(Self.speakerPrefix(seg, in: t))\(seg.text)")
             for line in Self.plausibilityNotes(for: seg, in: t) { out.append(line) }
             for line in Self.uncertaintyNotes(for: seg, in: t) { out.append(line) }
             out.append("")
@@ -252,7 +277,7 @@ public struct Exporter: Sendable {
         for (i, seg) in t.visibleSegments.enumerated() {
             out.append("\(i + 1)")
             out.append("\(Self.timecode(seg.start, sep: ",")) --> \(Self.timecode(max(seg.end, seg.start + 0.2), sep: ","))")
-            out.append(seg.text)
+            out.append(Self.speakerPrefix(seg, in: t) + seg.text)
             out.append("")
         }
         return out.joined(separator: "\n")
@@ -262,7 +287,7 @@ public struct Exporter: Sendable {
         var out = ["WEBVTT", ""]
         for seg in t.visibleSegments {
             out.append("\(Self.timecode(seg.start, sep: ".")) --> \(Self.timecode(max(seg.end, seg.start + 0.2), sep: "."))")
-            out.append(seg.text)
+            out.append(Self.speakerPrefix(seg, in: t) + seg.text)
             out.append("")
         }
         return out.joined(separator: "\n")
@@ -272,13 +297,19 @@ public struct Exporter: Sendable {
         var paragraphs: [String] = []
         var current = ""
         var prevEnd: Double? = nil
+        var prevSpeaker: Int? = nil
         for seg in t.visibleSegments {
-            if let p = prevEnd, seg.start - p > 1.2, !current.isEmpty {
+            // 話が切り替わったところで段落を切る。同一話者の連続は時差でもまとめる。
+            let turnChanged = seg.speaker != nil && seg.speaker != prevSpeaker
+            if (turnChanged || (prevEnd.map { seg.start - $0 > 1.2 } ?? false))
+                && !current.isEmpty {
                 paragraphs.append(current); current = ""
             }
+            if turnChanged { current += "【\(t.speakerName(seg.speaker!))】" }
             current += seg.text
             if current.count >= 90 { paragraphs.append(current); current = "" }
             prevEnd = seg.end
+            prevSpeaker = seg.speaker
         }
         if !current.isEmpty { paragraphs.append(current) }
         return paragraphs.joined(separator: "\n\n")

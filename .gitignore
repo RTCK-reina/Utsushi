@@ -10,3 +10,4 @@ fixtures/
 # AIエージェント向けの作業ルール。手元だけに置く。
 CLAUDE.md
 AGENTS.md
+vendor/nemo-speech/
